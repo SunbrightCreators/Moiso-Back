@@ -72,6 +72,13 @@ DATABASES = {
 }
 
 
+# Cache
+
+CACHES = {
+    'default': env.cache_url(DEV_OR_PROD+'_CACHE_URL'),
+}
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
