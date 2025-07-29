@@ -1,16 +1,25 @@
+from pathlib import Path
 import os
 from datetime import timedelta
-from env import BASE_DIR, DEBUG, SECRET_KEY, DATABASE_DEFAULT
+import environ
 
-DEBUG = DEBUG
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = SECRET_KEY
 
-DATABASES = {
-    'default': DATABASE_DEFAULT,
-}
+# env
+
+env = environ.Env(DEBUG=(bool, False))
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+DEBUG = env('DEBUG')
+
+SECRET_KEY = env('SECRET_KEY')
 
 ALLOWED_HOSTS = []
+
+DATABASES = {
+    'default': env.db(),
+}
 
 
 # Application definition
