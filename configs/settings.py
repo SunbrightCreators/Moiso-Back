@@ -11,15 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(DEBUG=(bool, False))
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-DEBUG = env('DEBUG')
-
 SECRET_KEY = env('SECRET_KEY')
 
-ALLOWED_HOSTS = []
-
-DATABASES = {
-    'default': env.db(),
-}
+DEBUG = env('DEBUG')
+DEV_OR_PROD = 'DEV' if DEBUG else 'PROD'
 
 
 # Application definition
@@ -67,6 +62,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'configs.wsgi.application'
 
 AUTH_USER_MODEL = 'auth.User'
+
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+DATABASES = {
+    'default': env.db_url(DEV_OR_PROD+'_DATABASE_URL'),
+}
 
 
 # Password validation
@@ -119,12 +122,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# Allowed Hosts
+
+ALLOWED_HOSTS = env.list(DEV_OR_PROD+'_ALLOWED_HOSTS', default=[])
+
+
 # CORS
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8080',
-    'http://127.0.0.1:8080',
-]
+CORS_ALLOWED_ORIGINS = env.list(DEV_OR_PROD+'_CORS_ALLOWED_ORIGINS', default=[])
 
 CORS_ALLOW_METHODS = (
     'GET',
