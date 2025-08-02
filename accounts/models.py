@@ -18,6 +18,14 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     # 커스텀 필드
+    id = NANOIDField(
+        primary_key=True,
+        verbose_name='ID',
+        editable=False,
+        secure_generated=True,
+        alphabetically=ascii_lowercase+digits,
+        size=21,
+    )
 
     def __str__(self):
         return self.email
