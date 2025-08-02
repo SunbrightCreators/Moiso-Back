@@ -6,12 +6,7 @@ from .managers import UserManager
 
 class User(AbstractUser):
     # AbstractUser 모델 오버라이딩
-    username = NANOIDField(
-        editable=False,
-        secure_generated=True,
-        alphabetically=ascii_lowercase+digits,
-        size=21,
-    )
+    username = None
     first_name = None
     last_name = None
     email = models.EmailField(

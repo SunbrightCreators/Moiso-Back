@@ -5,13 +5,11 @@ class CustomBaseUserCreationForm(BaseUserCreationForm):
     class Meta:
         model = User
         fields = ("email",)
-        read_only_fields = ("username",)
 
 class CustomUserChangeForm(UserChangeForm):
     class Meta:
         model = User
         fields = "__all__"
-        read_only_fields = ("username",)
 
 class CustomAdminUserCreationForm(SetUnusablePasswordMixin, CustomBaseUserCreationForm):
     usable_password = SetUnusablePasswordMixin.create_usable_password_field()
