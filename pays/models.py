@@ -19,7 +19,7 @@ class Payment(models.Model):
 class Cancel(models.Model):
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='cancels')
     cancel_amount = models.IntegerField()
-    canceled_at = models.DateTimeField()
+    canceled_at = models.DateTimeField
     cancel_status = models.CharField(max_length=50)
     transaction_key = models.CharField(max_length=64)
     receipt_key = models.CharField(max_length=200, null=True, blank=True)

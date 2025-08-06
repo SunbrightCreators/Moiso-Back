@@ -96,7 +96,7 @@ class CancelPaymentAPIViewRoot(APIView):
                         canceled_at=cancel.get("canceledAt"),
                         cancel_status=cancel.get("cancelStatus"),
                         transaction_key=cancel.get("transactionKey"),
-                        eceipt_key=cancel.get("receiptKey"),
+                        receipt_key=cancel.get("receiptKey"),
                     )
 
                 return Response(data, status=200)
@@ -105,3 +105,23 @@ class CancelPaymentAPIViewRoot(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
+class RetrievePaymentAPIViewRoot(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        payment_key = request.query_params.get("paymentKey")
+        order_id = request.query_params.get("orderId")
+
+        try:
+            if payment_key:
+                payment = Payment.objects.get(payment_key=payment_key)
+            elif order_id:
+                payment = Payment.objects.get(order_id=order_id)
+            else:
+                return Response({"error": "paymentKey나 orderId 중 하나는 반드시 필요합니다."}, status=400)
+
+            serializer = PaymentSerializer(payment)
+            return Response(serializer.data, status=200)
+
+        except Payment.DoesNotExist:
+            return Response({"error": "해당 결제를 찾을 수 없습니다."}, status=404)
