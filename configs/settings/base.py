@@ -5,7 +5,6 @@ import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-
 # env
 
 env = environ.Env(DEBUG=(bool, False))
@@ -14,7 +13,6 @@ environ.Env.read_env(os.path.join(BASE_DIR, 'env', '.env.base'))
 SECRET_KEY = env('SECRET_KEY')
 
 DEBUG = env('DEBUG')
-
 
 # Application definition
 
@@ -29,6 +27,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'accounts.apps.AccountsConfig',
+    'pays.apps.PaysConfig',
 ]
 
 MIDDLEWARE = [
@@ -68,18 +67,7 @@ AUTH_USER_MODEL = 'accounts.User'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+
 ]
 
 
