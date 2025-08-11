@@ -8,6 +8,7 @@ djangorestframework_simplejwt==5.5.1
 nanoid==2.0.0
 pillow==11.3.0
 pip==25.1.1
+psycopg2==2.9.10
 PyJWT==2.10.1
 sqlparse==0.5.3
 tzdata==2025.2
