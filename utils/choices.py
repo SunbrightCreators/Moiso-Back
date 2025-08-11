@@ -15,3 +15,7 @@ class SexChoices(TextChoices):
 class BankCategoryChoices(TextChoices):
     NATURAL = 'NATURAL', '개인'
     LEGAL = 'LEGAL', '법인'
+
+class NotificationCategoryChoices(TextChoices):
+    FUNDING = 'FUNDING', '펀딩'
+    REWARD = 'REWARD', '리워드'
