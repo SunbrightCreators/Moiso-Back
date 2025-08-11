@@ -11,3 +11,7 @@ class ExampleChoices(IntegerChoices):
 class SexChoices(TextChoices):
     WOMAN = 'WOMAN', '여성'
     MAN = 'MAN', '남성'
+
+class BankCategoryChoices(TextChoices):
+    NATURAL = 'NATURAL', '개인'
+    LEGAL = 'LEGAL', '법인'
