@@ -1,4 +1,4 @@
-from django.db.models import IntegerChoices
+from django.db.models import TextChoices, IntegerChoices
 
 class ExampleChoices(IntegerChoices):
     '''
