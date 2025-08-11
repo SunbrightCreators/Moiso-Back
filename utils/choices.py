@@ -8,6 +8,10 @@ class ExampleChoices(IntegerChoices):
     TWO = 2, '이'
     THREE = 3, '삼'
 
+class IndustryChoices(TextChoices):          # Founder, Proposer, Funding, Proposal 모델에 사용
+    FOOD        = "food",        "음식점"
+    CAFE        = "cafe",        "카페/디저트"
+
 class FounderTargetChoices(TextChoices):
     LOCAL = "local", "동네주민"
     OUTSIDER = "outsider", "외부인"
