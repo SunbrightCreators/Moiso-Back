@@ -37,6 +37,13 @@ class IndustryChoices(TextChoices):
     OTHER_RETAIL         = "OTHER_RETAIL",         "기타 판매업"
     OTHER_SERVICE        = "OTHER_SERVICE",        "기타 서비스업"
 
+class RadiusChoices(IntegerChoices):
+    M0      =     0,   '0m'
+    M250    =   250, '250m'
+    M500    =   500, '500m'
+    M750    =   750, '750m'
+    M1000   = 1_000,'1000m'
+
 class FounderTargetChoices(TextChoices):
     LOCAL = "LOCAL", "동네주민"
     STRANGER = "STRANGER", "외부인"
