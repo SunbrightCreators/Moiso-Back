@@ -45,14 +45,10 @@ class FundingStatusChoices(TextChoices):
     ACTIVE = "ACTIVE", "진행중"
     CLOSED = "CLOSED", "종료"
 
-class FundingBankCategoryChoices(TextChoices):
-    INDIVIDUAL = "INDIVIDUAL", "개인"
-    BUSINESS = "BUSINESS", "사업자"
-
 class RewardCategoryChoices(TextChoices):
-    COUPON = "coupon", "펀딩 할인쿠폰"
-    GIFT = "gift", "펀딩 선물증정"
-    LEVEL = "level", "레벨"
+    COUPON = "COUPON", "펀딩 할인쿠폰"
+    GIFT = "GIFT", "펀딩 선물증정"
+    LEVEL = "LEVEL", "레벨"
 
 class RewardAmountChoices(IntegerChoices):
     W5K = 5_000, "5천원"
