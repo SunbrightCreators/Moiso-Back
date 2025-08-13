@@ -8,7 +8,11 @@ class ExampleChoices(IntegerChoices):
     TWO = 2, '이'
     THREE = 3, '삼'
 
-class IndustryChoices(TextChoices):          # Founder, Proposer, Funding, Proposal 모델에 사용
+class SexChoices(TextChoices):
+    WOMAN = 'WOMAN', '여성'
+    MAN = 'MAN', '남성'
+
+class IndustryChoices(TextChoices):
     FOOD_DINING          = "FOOD_DINING",          "외식/음식점"
     CAFE_DESSERT         = "CAFE_DESSERT",         "카페/디저트"
     PUB_BAR              = "PUB_BAR",              "주점"
@@ -33,7 +37,6 @@ class IndustryChoices(TextChoices):          # Founder, Proposer, Funding, Propo
     OTHER_RETAIL         = "OTHER_RETAIL",         "기타 판매업"
     OTHER_SERVICE        = "OTHER_SERVICE",        "기타 서비스업"
 
-
 class FounderTargetChoices(TextChoices):
     LOCAL = "LOCAL", "동네주민"
     STRANGER = "STRANGER", "외부인"
@@ -44,6 +47,10 @@ class FundingStatusChoices(TextChoices):
     REJECTED = "REJECTED", "반려됨"
     ACTIVE = "ACTIVE", "진행중"
     CLOSED = "CLOSED", "종료"
+
+class BankCategoryChoices(TextChoices):
+    NATURAL = 'NATURAL', '개인'
+    LEGAL = 'LEGAL', '법인'
 
 class RewardCategoryChoices(TextChoices):
     COUPON = "COUPON", "펀딩 할인쿠폰"
@@ -93,3 +100,7 @@ class CashReceiptIssueStatusChoices(TextChoices):
     IN_PROGRESS = "IN_PROGRESS", "발급 진행 중"
     COMPLETED = "COMPLETED", "발급 완료"
     FAILED = "FAILED", "발급 실패"
+
+class NotificationCategoryChoices(TextChoices):
+    FUNDING = 'FUNDING', '펀딩'
+    REWARD = 'REWARD', '리워드'
