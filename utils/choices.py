@@ -82,8 +82,8 @@ class PaymentStatusChoices(TextChoices):
     EXPIRED = "EXPIRED", "만료"
 
 class CashReceiptTypeChoices(TextChoices):
-    INCOME_DEDUCTION = "INCOME_DEDUCTION", "소득공제"
-    EXPENSE_PROOF  = "EXPENSE_PROOF", "지출증빙"
+    INCOME_DEDUCTION = "소득공제"
+    EXPENSE_PROOF  = "지출증빙"
 
 class CashReceiptTransactionTypeChoices(TextChoices):
     CONFIRM = "CONFIRM", "발급"
