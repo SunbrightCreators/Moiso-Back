@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'accounts.apps.AccountsConfig',
+    'maps.apps.MapsConfig',
 ]
 
 MIDDLEWARE = [
