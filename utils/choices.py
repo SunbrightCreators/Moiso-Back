@@ -44,6 +44,12 @@ class RadiusChoices(IntegerChoices):
     M750    =   750, '750m'
     M1000   = 1_000,'1000m'
 
+class ZoomChoices(IntegerChoices):
+    M0     =      0,   '0m'
+    M500   =    500, '500m'
+    M2000  =  2_000,  '2km'
+    M10000 = 10_000, '10km'
+
 class FounderTargetChoices(TextChoices):
     LOCAL = "LOCAL", "동네주민"
     STRANGER = "STRANGER", "외부인"
