@@ -55,11 +55,12 @@ class FounderTargetChoices(TextChoices):
     STRANGER = "STRANGER", "외부인"
 
 class FundingStatusChoices(TextChoices):
-    REVIEW = "REVIEW", "심사중"
+    PENDING = "PENDING", "심사 중"
     APPROVED = "APPROVED", "승인됨"
     REJECTED = "REJECTED", "반려됨"
-    ACTIVE = "ACTIVE", "진행중"
-    CLOSED = "CLOSED", "종료"
+    IN_PROGRESS = "IN_PROGRESS", "진행 중"
+    SUCCEEDED = "SUCCEEDED", "성공"
+    FAILED = "FAILED", "실패"
 
 class BankCategoryChoices(TextChoices):
     NATURAL = 'NATURAL', '개인'
