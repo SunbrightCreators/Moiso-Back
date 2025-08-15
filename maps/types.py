@@ -11,6 +11,16 @@ class PositionType(TypedDict):
     latitude: int
     longitude: int
 
+class AddressType(TypedDict):
+    '''
+    주소
+    Attributes:
+        road (str): 도로명 주소
+        jibun (str): 지번 주소
+    '''
+    road: str
+    jibun: str
+
 class NaverGeocodingAPI:
     class MetaType(TypedDict):
         '''
