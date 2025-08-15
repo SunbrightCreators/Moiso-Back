@@ -15,6 +15,9 @@ SECRET_KEY = env('SECRET_KEY')
 
 DEBUG = env('DEBUG')
 
+NCLOUD_CLIENT_ID = env('NCLOUD_CLIENT_ID')
+NCLOUD_CLIENT_SECRET = env('NCLOUD_CLIENT_SECRET')
+
 
 # Application definition
 
