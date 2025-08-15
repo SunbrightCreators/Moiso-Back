@@ -5,11 +5,11 @@ class PositionType(TypedDict):
     '''
     좌표
     Attributes:
-        latitude (int): 위도
-        longitude (int): 경도
+        latitude (float): 위도
+        longitude (float): 경도
     '''
-    latitude: int
-    longitude: int
+    latitude: float
+    longitude: float
 
 class AddressType(TypedDict):
     '''
