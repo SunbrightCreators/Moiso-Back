@@ -1,3 +1,49 @@
-from django.shortcuts import render
+from django.http import HttpRequest
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .services import NaverMapService
 
-# Create your views here.
+class GeocodingRoot(APIView):
+    def get(self, request:HttpRequest, format=None):
+        address = request.query_params.get('address')
+
+        service = NaverMapService()
+        position = service.get_address_to_position(address)
+
+        return Response(
+            position,
+            status=status.HTTP_200_OK,
+        )
+
+class ReverseGeocodingAddress(APIView):
+    def get(self, request:HttpRequest, format=None):
+        latitude = request.query_params.get('latitude')
+        longitude = request.query_params.get('longitude')
+
+        service = NaverMapService()
+        address = service.get_position_to_address({
+            'latitude': latitude,
+            'longitude': longitude,
+        })
+
+        return Response(
+            address,
+            status=status.HTTP_200_OK,
+        )
+
+class ReverseGeocodingAdmcode(APIView):
+    def get(self, request:HttpRequest, format=None):
+        latitude = request.query_params.get('latitude')
+        longitude = request.query_params.get('longitude')
+
+        service = NaverMapService()
+        address = service.get_position_to_legalcode({
+            'latitude': latitude,
+            'longitude': longitude,
+        })
+
+        return Response(
+            address,
+            status=status.HTTP_200_OK,
+        )
