@@ -11,15 +11,33 @@ class PositionType(TypedDict):
     latitude: float
     longitude: float
 
-class AddressType(TypedDict):
-    '''
-    주소
-    Attributes:
-        road (str): 도로명 주소
-        jibun (str): 지번 주소
-    '''
-    road: str
-    jibun: str
+class AddressType:
+    '''주소'''
+    class FullType(TypedDict):
+        '''
+        Attributes:
+            sido (str|None): 시도
+            sigungu (str|None): 시군구
+            eupmyundong (str|None): 읍면동
+            jibun_detail (str|None): 지번 주소 상세
+            road_detail (str|None): 도로명 주소 상세
+        '''
+        sido: str|None
+        sigungu: str|None
+        eupmyundong: str|None
+        jibun_detail: str|None
+        road_detail: str|None
+
+    class LegalcodeType(TypedDict):
+        '''
+        Attributes:
+            sido (str|None): 시도
+            sigungu (str|None): 시군구
+            eupmyundong (str|None): 읍면동
+        '''
+        sido: str|None
+        sigungu: str|None
+        eupmyundong: str|None
 
 class NaverGeocodingAPIType:
     class MetaType(TypedDict):

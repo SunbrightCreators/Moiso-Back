@@ -117,74 +117,76 @@ class NaverMapService:
             'longitude': float(first_address['y'])
         }
 
-    def get_position_to_address(self, position:PositionType) -> AddressType:
+    def get_position_to_fulladdress(self, position:PositionType) -> AddressType.FullType:
         '''
-        좌표(위도,경도)를 주소로 변환합니다.
+        좌표(위도,경도)를 전체 주소로 변환합니다.
         Args:
             position (PositionType):
                 - latitude (int): 위도
                 - longitude (int): 경도
         Returns:
-            address (AddressType):
-                - road (str): 도로명 주소
-                - jibun (str): 지번 주소
+            address (AddressType.FullType):
+                - sido (str|None): 시도
+                - sigungu (str|None): 시군구
+                - eupmyundong (str|None): 읍면동
+                - jibun_detail (str|None): 지번 주소 상세
+                - road_detail (str|None): 도로명 주소 상세
         '''
         response = self.get_reverse_geocoding(
             coords=f'{position['latitude']},{position['longitude']}',
-            orders=['roadaddr','addr']
+            orders=['legalcode','addr','roadaddr']
         )
 
         if not response.get('results'):
             raise NotFound('주소를 찾을 수 없어요.')
-
-        roadaddr = next((item for item in response['results'] if item['name'] == 'roadaddr'), None)
-        if roadaddr:
-            road = ' '.join(
-                filter(None, [
-                    roadaddr.get('region').get('area1').get('name'),
-                    roadaddr.get('region').get('area2').get('name'),
-                    roadaddr.get('region').get('area3').get('name'),
-                    roadaddr.get('region').get('area4').get('name'),
-                    roadaddr.get('land').get('name'),
-                    roadaddr.get('land').get('number1'),
-                ])
-            )
-        else:
-            road = None
+        
+        legalcode = next((item for item in response['results'] if item['name'] == 'legalcode'), None)
 
         addr = next((item for item in response['results'] if item['name'] == 'addr'), None)
         if addr:
-            jibun = ' '.join(
+            jibun_detail = ' '.join(
                 filter(None, [
-                    addr.get('region').get('area1').get('name'),
-                    addr.get('region').get('area2').get('name'),
-                    addr.get('region').get('area3').get('name'),
-                    addr.get('region').get('area4').get('name'),
-                    addr.get('land').get('number1')
+                    addr.get('region', {}).get('area4', {}).get('name'),
+                    addr.get('land', {}).get('number1')
                 ])
             )
-            if addr.get('land').get('number2'):
-                jibun += ('-' + addr['land']['number2'])
+            if addr.get('land', {}).get('number2'):
+                jibun_detail += ('-' + addr['land']['number2'])
         else:
-            jibun = None
+            jibun_detail = None
+
+        roadaddr = next((item for item in response['results'] if item['name'] == 'roadaddr'), None)
+        if roadaddr:
+            road_detail = ' '.join(
+                filter(None, [
+                    roadaddr.get('region', {}).get('area4', {}).get('name'),
+                    roadaddr.get('land', {}).get('name'),
+                    roadaddr.get('land', {}).get('number1'),
+                ])
+            )
+        else:
+            road_detail = None
 
         return {
-            'road': road,
-            'jibun': jibun,
+            'sido': legalcode.get('region', {}).get('area1', {}).get('name') or None,
+            'sigungu': legalcode.get('region', {}).get('area2', {}).get('name') or None,
+            'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
+            'jibun_detail': jibun_detail,
+            'road_detail': road_detail,
         }
 
-    def get_position_to_legalcode(self, position:PositionType) -> str:
+    def get_position_to_legalcode(self, position:PositionType) -> AddressType.LegalcodeType:
         '''
-        좌표(위도,경도)를 법정동으로 변환합니다.
+        좌표(위도,경도)를 법정동 주소로 변환합니다.
         Args:
             position (PositionType):
                 - latitude (int): 위도
                 - longitude (int): 경도
         Returns:
-            address (dict):
-                - sido: 시도
-                - sigungu: 시군구
-                - eupmyundong: 읍면동
+            address (AddressType.LegalcodeType):
+                - sido (str|None): 시도
+                - sigungu (str|None): 시군구
+                - eupmyundong (str|None): 읍면동
         '''
         response = self.get_reverse_geocoding(
             coords=f'{position['latitude']},{position['longitude']}',
@@ -197,7 +199,7 @@ class NaverMapService:
         legalcode = response['results'][0]
 
         return {
-            'sido': legalcode.get('region').get('area1').get('name'),
-            'sigungu': legalcode.get('region').get('area2').get('name'),
-            'eupmyundong': legalcode.get('region').get('area3').get('name'),
+            'sido': legalcode.get('region', {}).get('area1', {}).get('name') or None,
+            'sigungu': legalcode.get('region', {}).get('area2', {}).get('name') or None,
+            'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
         }

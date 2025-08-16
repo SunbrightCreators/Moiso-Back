@@ -22,7 +22,7 @@ class ReverseGeocodingAddress(APIView):
         longitude = request.query_params.get('longitude')
 
         service = NaverMapService()
-        address = service.get_position_to_address({
+        address = service.get_position_to_fulladdress({
             'latitude': latitude,
             'longitude': longitude,
         })
