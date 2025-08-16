@@ -183,7 +183,10 @@ class NaverMapService:
                 - latitude (int): 위도
                 - longitude (int): 경도
         Returns:
-            address (str): 법정동 주소
+            address (dict):
+                - sido: 시도
+                - sigungu: 시군구
+                - eupmyundong: 읍면동
         '''
         response = self.get_reverse_geocoding(
             coords=f'{position['latitude']},{position['longitude']}',
@@ -194,14 +197,9 @@ class NaverMapService:
             raise NotFound('주소를 찾을 수 없어요.')
 
         legalcode = response['results'][0]
-        address = ' '.join(
-            filter(None, [
-                legalcode.get('region').get('area1').get('name'),
-                legalcode.get('region').get('area2').get('name'),
-                legalcode.get('region').get('area3').get('name'),
-            ])
-        )
 
         return {
-            'legalcode': address,
+            'sido': legalcode.get('region').get('area1').get('name'),
+            'sigungu': legalcode.get('region').get('area2').get('name'),
+            'eupmyundong': legalcode.get('region').get('area3').get('name'),
         }
