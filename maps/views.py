@@ -22,7 +22,8 @@ class GeocodingLegal(APIView):
 
 class GeocodingFull(APIView):
     def get(self, request:HttpRequest, format=None):
-        pass
+        query = request.query_params.get('query')
+        filter = request.query_params.get('filter')
 
 class ReverseGeocodingLegal(APIView):
     def get(self, request:HttpRequest, format=None):
