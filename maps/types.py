@@ -28,7 +28,7 @@ class AddressType:
         jibun_detail: str|None
         road_detail: str|None
 
-    class LegalcodeType(TypedDict):
+    class LegalType(TypedDict):
         '''
         Attributes:
             sido (str|None): 시도

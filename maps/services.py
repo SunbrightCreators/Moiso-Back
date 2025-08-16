@@ -175,7 +175,7 @@ class NaverMapService:
             'road_detail': road_detail,
         }
 
-    def get_position_to_legalcode(self, position:PositionType) -> AddressType.LegalcodeType:
+    def get_position_to_legal(self, position:PositionType) -> AddressType.LegalType:
         '''
         좌표(위도,경도)를 법정동 주소로 변환합니다.
         Args:
@@ -183,7 +183,7 @@ class NaverMapService:
                 - latitude (int): 위도
                 - longitude (int): 경도
         Returns:
-            address (AddressType.LegalcodeType):
+            address (AddressType.LegalType):
                 - sido (str|None): 시도
                 - sigungu (str|None): 시군구
                 - eupmyundong (str|None): 읍면동

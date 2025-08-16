@@ -32,13 +32,13 @@ class ReverseGeocodingFull(APIView):
             status=status.HTTP_200_OK,
         )
 
-class ReverseGeocodingAdmcode(APIView):
+class ReverseGeocodingLegal(APIView):
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
         longitude = request.query_params.get('longitude')
 
         service = NaverMapService()
-        address = service.get_position_to_legalcode({
+        address = service.get_position_to_legal({
             'latitude': latitude,
             'longitude': longitude,
         })
