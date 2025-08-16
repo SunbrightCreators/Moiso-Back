@@ -117,7 +117,7 @@ class NaverMapService:
             'longitude': float(first_address['y'])
         }
 
-    def get_position_to_fulladdress(self, position:PositionType) -> AddressType.FullType:
+    def get_position_to_full(self, position:PositionType) -> AddressType.FullType:
         '''
         좌표(위도,경도)를 전체 주소로 변환합니다.
         Args:

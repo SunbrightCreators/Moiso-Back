@@ -16,13 +16,13 @@ class GeocodingRoot(APIView):
             status=status.HTTP_200_OK,
         )
 
-class ReverseGeocodingAddress(APIView):
+class ReverseGeocodingFull(APIView):
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
         longitude = request.query_params.get('longitude')
 
         service = NaverMapService()
-        address = service.get_position_to_fulladdress({
+        address = service.get_position_to_full({
             'latitude': latitude,
             'longitude': longitude,
         })
