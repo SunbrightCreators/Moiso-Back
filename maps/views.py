@@ -20,6 +20,10 @@ class GeocodingLegal(APIView):
     def get(self, request:HttpRequest, format=None):
         pass
 
+class GeocodingFull(APIView):
+    def get(self, request:HttpRequest, format=None):
+        pass
+
 class ReverseGeocodingLegal(APIView):
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
