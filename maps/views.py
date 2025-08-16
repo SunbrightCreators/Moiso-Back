@@ -16,13 +16,13 @@ class GeocodingRoot(APIView):
             status=status.HTTP_200_OK,
         )
 
-class ReverseGeocodingFull(APIView):
+class ReverseGeocodingLegal(APIView):
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
         longitude = request.query_params.get('longitude')
 
         service = NaverMapService()
-        address = service.get_position_to_full({
+        address = service.get_position_to_legal({
             'latitude': latitude,
             'longitude': longitude,
         })
@@ -32,13 +32,13 @@ class ReverseGeocodingFull(APIView):
             status=status.HTTP_200_OK,
         )
 
-class ReverseGeocodingLegal(APIView):
+class ReverseGeocodingFull(APIView):
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
         longitude = request.query_params.get('longitude')
 
         service = NaverMapService()
-        address = service.get_position_to_legal({
+        address = service.get_position_to_full({
             'latitude': latitude,
             'longitude': longitude,
         })

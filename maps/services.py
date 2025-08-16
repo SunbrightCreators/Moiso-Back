@@ -117,6 +117,35 @@ class NaverMapService:
             'longitude': float(first_address['y'])
         }
 
+    def get_position_to_legal(self, position:PositionType) -> AddressType.LegalType:
+        '''
+        좌표(위도,경도)를 법정동 주소로 변환합니다.
+        Args:
+            position (PositionType):
+                - latitude (int): 위도
+                - longitude (int): 경도
+        Returns:
+            address (AddressType.LegalType):
+                - sido (str|None): 시도
+                - sigungu (str|None): 시군구
+                - eupmyundong (str|None): 읍면동
+        '''
+        response = self.get_reverse_geocoding(
+            coords=f'{position['latitude']},{position['longitude']}',
+            orders=['legalcode']
+        )
+
+        if not response.get('results'):
+            raise NotFound('주소를 찾을 수 없어요.')
+
+        legalcode = response['results'][0]
+
+        return {
+            'sido': legalcode.get('region', {}).get('area1', {}).get('name') or None,
+            'sigungu': legalcode.get('region', {}).get('area2', {}).get('name') or None,
+            'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
+        }
+
     def get_position_to_full(self, position:PositionType) -> AddressType.FullType:
         '''
         좌표(위도,경도)를 전체 주소로 변환합니다.
@@ -173,33 +202,4 @@ class NaverMapService:
             'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
             'jibun_detail': jibun_detail,
             'road_detail': road_detail,
-        }
-
-    def get_position_to_legal(self, position:PositionType) -> AddressType.LegalType:
-        '''
-        좌표(위도,경도)를 법정동 주소로 변환합니다.
-        Args:
-            position (PositionType):
-                - latitude (int): 위도
-                - longitude (int): 경도
-        Returns:
-            address (AddressType.LegalType):
-                - sido (str|None): 시도
-                - sigungu (str|None): 시군구
-                - eupmyundong (str|None): 읍면동
-        '''
-        response = self.get_reverse_geocoding(
-            coords=f'{position['latitude']},{position['longitude']}',
-            orders=['legalcode']
-        )
-
-        if not response.get('results'):
-            raise NotFound('주소를 찾을 수 없어요.')
-
-        legalcode = response['results'][0]
-
-        return {
-            'sido': legalcode.get('region', {}).get('area1', {}).get('name') or None,
-            'sigungu': legalcode.get('region', {}).get('area2', {}).get('name') or None,
-            'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
         }
