@@ -6,10 +6,10 @@ from .services import GeocodingService, ReverseGeocodingService
 
 class GeocodingPosition(APIView):
     def get(self, request:HttpRequest, format=None):
-        address = request.query_params.get('address')
+        query = request.query_params.get('query')
 
         service = GeocodingService()
-        position = service.get_address_to_position(address)
+        position = service.get_address_to_position(query)
 
         return Response(
             position,
