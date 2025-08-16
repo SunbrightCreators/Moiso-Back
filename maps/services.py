@@ -4,7 +4,7 @@ from django.conf import settings
 from rest_framework.exceptions import NotFound
 from .types import PositionType, AddressType, NaverGeocodingAPIType, NaverReverseGeocodingAPIType
 
-class NaverMapService:
+class GeocodingService:
     def get_geocoding(
             self,
             query:str,
@@ -49,6 +49,32 @@ class NaverMapService:
         )
         return response.json()
 
+    def get_address_to_position(self, address:str) -> PositionType:
+        '''
+        주소를 좌표(위도,경도)로 변환합니다.
+        Args:
+            address (str): 주소
+        Returns:
+            position (PositionType):
+                - latitude (int): 위도
+                - longitude (int): 경도
+        '''
+        response = self.get_geocoding(
+            query=address,
+            count=1,
+        )
+
+        if not response.get('addresses'):
+            raise NotFound('좌표를 찾을 수 없어요.')
+
+        first_address = response['addresses'][0]
+
+        return  {
+            'latitude': float(first_address['x']),
+            'longitude': float(first_address['y'])
+        }
+
+class ReverseGeocodingService:
     def get_reverse_geocoding(
             self,
             coords:str,
@@ -91,31 +117,6 @@ class NaverMapService:
             }
         )
         return response.json()
-
-    def get_address_to_position(self, address:str) -> PositionType:
-        '''
-        주소를 좌표(위도,경도)로 변환합니다.
-        Args:
-            address (str): 주소
-        Returns:
-            position (PositionType):
-                - latitude (int): 위도
-                - longitude (int): 경도
-        '''
-        response = self.get_geocoding(
-            query=address,
-            count=1,
-        )
-
-        if not response.get('addresses'):
-            raise NotFound('좌표를 찾을 수 없어요.')
-
-        first_address = response['addresses'][0]
-
-        return  {
-            'latitude': float(first_address['x']),
-            'longitude': float(first_address['y'])
-        }
 
     def get_position_to_legal(self, position:PositionType) -> AddressType.LegalType:
         '''
