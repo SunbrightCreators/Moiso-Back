@@ -77,6 +77,11 @@ class RewardAmountChoices(IntegerChoices):
     W30K = 30_000, '3만원'
     W50K = 50_000, '5만원'
 
+class RewardStatusChoices(TextChoices):
+    PENDING = 'PENDING', '코드 없음'
+    UNUSED  = 'UNUSED',  '사용 가능함'
+    USED    = 'USED',    '사용함'
+
 class PaymentTypeChoices(TextChoices):
     NORMAL   = 'NORMAL',   '일반 결제'
     BILLING  = 'BILLING',  '자동결제'
