@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .services import GeocodingService, ReverseGeocodingService
 
-class GeocodingRoot(APIView):
+class GeocodingPosition(APIView):
     def get(self, request:HttpRequest, format=None):
         address = request.query_params.get('address')
 
