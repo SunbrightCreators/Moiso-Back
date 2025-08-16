@@ -111,12 +111,10 @@ class NaverMapService:
             raise NotFound('좌표를 찾을 수 없어요.')
 
         first_address = response['addresses'][0]
-        x = float(first_address['x'])
-        y = float(first_address['y'])
 
         return  {
-            'latitude': x,
-            'longitude': y
+            'latitude': float(first_address['x']),
+            'longitude': float(first_address['y'])
         }
 
     def get_position_to_address(self, position:PositionType) -> AddressType:
@@ -174,7 +172,7 @@ class NaverMapService:
             'road': road,
             'jibun': jibun,
         }
-    
+
     def get_position_to_legalcode(self, position:PositionType) -> str:
         '''
         좌표(위도,경도)를 법정동으로 변환합니다.
