@@ -139,30 +139,36 @@ class NaverMapService:
         if not response.get('results'):
             raise NotFound('주소를 찾을 수 없어요.')
 
-        roadaddr = response['results'][0]
-        road = ' '.join(
-            filter(None, [
-                roadaddr.get('region').get('area1').get('name'),
-                roadaddr.get('region').get('area2').get('name'),
-                roadaddr.get('region').get('area3').get('name'),
-                roadaddr.get('region').get('area4').get('name'),
-                roadaddr.get('land').get('name'),
-                roadaddr.get('land').get('number1'),
-            ])
-        )
+        roadaddr = next((item for item in response['results'] if item['name'] == 'roadaddr'), None)
+        if roadaddr:
+            road = ' '.join(
+                filter(None, [
+                    roadaddr.get('region').get('area1').get('name'),
+                    roadaddr.get('region').get('area2').get('name'),
+                    roadaddr.get('region').get('area3').get('name'),
+                    roadaddr.get('region').get('area4').get('name'),
+                    roadaddr.get('land').get('name'),
+                    roadaddr.get('land').get('number1'),
+                ])
+            )
+        else:
+            road = None
 
-        addr = response['results'][1]
-        jibun = ' '.join(
-            filter(None, [
-                addr.get('region').get('area1').get('name'),
-                addr.get('region').get('area2').get('name'),
-                addr.get('region').get('area3').get('name'),
-                addr.get('region').get('area4').get('name'),
-                addr.get('land').get('number1')
-            ])
-        )
-        if addr.get('land').get('number2'):
-            jibun += ('-' + addr['land']['number2'])
+        addr = next((item for item in response['results'] if item['name'] == 'addr'), None)
+        if addr:
+            jibun = ' '.join(
+                filter(None, [
+                    addr.get('region').get('area1').get('name'),
+                    addr.get('region').get('area2').get('name'),
+                    addr.get('region').get('area3').get('name'),
+                    addr.get('region').get('area4').get('name'),
+                    addr.get('land').get('number1')
+                ])
+            )
+            if addr.get('land').get('number2'):
+                jibun += ('-' + addr['land']['number2'])
+        else:
+            jibun = None
 
         return {
             'road': road,
