@@ -21,7 +21,7 @@ class AddressType(TypedDict):
     road: str
     jibun: str
 
-class NaverGeocodingAPI:
+class NaverGeocodingAPIType:
     class MetaType(TypedDict):
         '''
         메타 데이터
@@ -64,7 +64,7 @@ class NaverGeocodingAPI:
             roadAddress (str): 도로명 주소
             jibunAddress (str): 지번 주소
             englishAddress (str): 영어 주소
-            addressElements (list[NaverGeocodingAPI.AddressElementType]): 주소 구성 요소 정보
+            addressElements (list[NaverGeocodingAPIType.AddressElementType]): 주소 구성 요소 정보
             x (str): X 좌표(경도)
             y (str): Y 좌표(위도)
             distance (float): 중심 좌표로부터의 거리(m)
@@ -72,7 +72,7 @@ class NaverGeocodingAPI:
         roadAddress: str
         jibunAddress: str
         englishAddress: str
-        addressElements: list[NaverGeocodingAPI.AddressElementType]
+        addressElements: list[NaverGeocodingAPIType.AddressElementType]
         x: str
         y: str
         distance: float
@@ -82,16 +82,16 @@ class NaverGeocodingAPI:
         응답 바디
         Attributes:
             status (str): 응답 코드
-            meta (NaverGeocodingAPI.MetaType): 메타 데이터
-            addresses (list[NaverGeocodingAPI.AddressType]): 주소 정보 목록
+            meta (NaverGeocodingAPIType.MetaType): 메타 데이터
+            addresses (list[NaverGeocodingAPIType.AddressType]): 주소 정보 목록
             errorMessage (str|Literal['']): 오류 메시지 (500 오류 발생 시에만 표시)
         '''
         status: str
-        meta: NaverGeocodingAPI.MetaType
-        addresses: list[NaverGeocodingAPI.AddressType]
+        meta: NaverGeocodingAPIType.MetaType
+        addresses: list[NaverGeocodingAPIType.AddressType]
         errorMessage: str|Literal['']
 
-class NaverReverseGeocodingAPI:
+class NaverReverseGeocodingAPIType:
     class StatusType(TypedDict):
         '''
         응답 상태에 대한 정보
@@ -135,38 +135,38 @@ class NaverReverseGeocodingAPI:
         '''
         행정 구역 위치 정보
         Attributes:
-            center (NaverReverseGeocodingAPI.CoordsCenterType): 행정 구역 중심 좌표
+            center (NaverReverseGeocodingAPIType.CoordsCenterType): 행정 구역 중심 좌표
         '''
-        center: NaverReverseGeocodingAPI.CoordsCenterType
+        center: NaverReverseGeocodingAPIType.CoordsCenterType
 
     class RegionAreaNType(TypedDict):
         '''
         행정 구역 정보
         Attributes:
             name (str): 행정 구역 단위 이름
-            coords (NaverReverseGeocodingAPI.CoordsType): 행정 구역 위치 정보
+            coords (NaverReverseGeocodingAPIType.CoordsType): 행정 구역 위치 정보
             alias (str|None): 행정 구역 줄임말
         '''
         name: str
-        coords: NaverReverseGeocodingAPI.CoordsType
+        coords: NaverReverseGeocodingAPIType.CoordsType
         alias: str|None
 
     class RegionType(TypedDict):
         '''
         주소 정보
         Attributes:
-            areaN (NaverReverseGeocodingAPI.RegionAreaNType): 행정 구역 정보 (변환된 주소의 가장 큰 행정 구역 단위부터 순차적으로 표시)
+            areaN (NaverReverseGeocodingAPIType.RegionAreaNType): 행정 구역 정보 (변환된 주소의 가장 큰 행정 구역 단위부터 순차적으로 표시)
             area0.name (`kr`): 국가 코드 최상위 도메인으로, `kr` 표시
             area1.name (str): 행정안전부에서 공시한 시/도 이름
             area2.name (str): 행정안전부에서 공시한 시/군/구 이름
             area3.name (str): 행정안전부에서 공시한 읍/면/동 이름
             area4.name (str): 행정안전부에서 공시한 리 이름
         '''
-        area0: NaverReverseGeocodingAPI.RegionAreaNType
-        area1: NaverReverseGeocodingAPI.RegionAreaNType
-        area2: NaverReverseGeocodingAPI.RegionAreaNType
-        area3: NaverReverseGeocodingAPI.RegionAreaNType
-        area4: NaverReverseGeocodingAPI.RegionAreaNType
+        area0: NaverReverseGeocodingAPIType.RegionAreaNType
+        area1: NaverReverseGeocodingAPIType.RegionAreaNType
+        area2: NaverReverseGeocodingAPIType.RegionAreaNType
+        area3: NaverReverseGeocodingAPIType.RegionAreaNType
+        area4: NaverReverseGeocodingAPIType.RegionAreaNType
 
     class LandAdditionNType(TypedDict):
         '''
@@ -190,15 +190,15 @@ class NaverReverseGeocodingAPI:
                 - name이 `addr`인 경우 토지 본번호
                 - name이 `roadaddr`인 경우 상세 주소
             number2 (str|Literal['']): 토지 부번호 (name이 addr인 경우에만 상세 값 표시)
-            coords (NaverReverseGeocodingAPI.CoordsType): 상세 주소 위치 정보
-            additionN (NaverReverseGeocodingAPI.LandAdditionNType): 추가 정보 (name이 roadaddr인 경우에만 상세 값 표시)
-            addition0 (NaverReverseGeocodingAPI.LandAdditionNType): 건물 정보 (name이 roadaddr인 경우에만 상세 값 표시)
+            coords (NaverReverseGeocodingAPIType.CoordsType): 상세 주소 위치 정보
+            additionN (NaverReverseGeocodingAPIType.LandAdditionNType): 추가 정보 (name이 roadaddr인 경우에만 상세 값 표시)
+            addition0 (NaverReverseGeocodingAPIType.LandAdditionNType): 건물 정보 (name이 roadaddr인 경우에만 상세 값 표시)
                 - type: `building`
                 - value: 건물 이름
-            addition1 (NaverReverseGeocodingAPI.LandAdditionNType): 우편 번호 정보 (name이 roadaddr인 경우에만 상세 값 표시)
+            addition1 (NaverReverseGeocodingAPIType.LandAdditionNType): 우편 번호 정보 (name이 roadaddr인 경우에만 상세 값 표시)
                 - type: `zipcode`
                 - value: 우편번호
-            addition2 (NaverReverseGeocodingAPI.LandAdditionNType): 도로 코드 정보 (name이 roadaddr인 경우에만 상세 값 표시)
+            addition2 (NaverReverseGeocodingAPIType.LandAdditionNType): 도로 코드 정보 (name이 roadaddr인 경우에만 상세 값 표시)
                 - type: `roadGroupCode`
                 - value: 도로 코드(12자리)
         '''
@@ -206,33 +206,33 @@ class NaverReverseGeocodingAPI:
         name: str|None
         number1: str
         number2: str|Literal['']
-        coords: NaverReverseGeocodingAPI.CoordsType
-        addition0: NaverReverseGeocodingAPI.LandAdditionNType
-        addition1: NaverReverseGeocodingAPI.LandAdditionNType
-        addition2: NaverReverseGeocodingAPI.LandAdditionNType
-        addition3: NaverReverseGeocodingAPI.LandAdditionNType
-        addition4: NaverReverseGeocodingAPI.LandAdditionNType
+        coords: NaverReverseGeocodingAPIType.CoordsType
+        addition0: NaverReverseGeocodingAPIType.LandAdditionNType
+        addition1: NaverReverseGeocodingAPIType.LandAdditionNType
+        addition2: NaverReverseGeocodingAPIType.LandAdditionNType
+        addition3: NaverReverseGeocodingAPIType.LandAdditionNType
+        addition4: NaverReverseGeocodingAPIType.LandAdditionNType
 
     class ResultType(TypedDict):
         '''
         응답 결과
         Attributes:
             name (str): 변환 타입
-            code (NaverReverseGeocodingAPI.CodeType): 코드 정보
-            region (NaverReverseGeocodingAPI.RegionType): 주소 정보
-            land (NaverReverseGeocodingAPI.LandType): 상세 주소 정보
+            code (NaverReverseGeocodingAPIType.CodeType): 코드 정보
+            region (NaverReverseGeocodingAPIType.RegionType): 주소 정보
+            land (NaverReverseGeocodingAPIType.LandType): 상세 주소 정보
         '''
         name: str
-        code: NaverReverseGeocodingAPI.CodeType
-        region: NaverReverseGeocodingAPI.RegionType
-        land: NaverReverseGeocodingAPI.LandType
+        code: NaverReverseGeocodingAPIType.CodeType
+        region: NaverReverseGeocodingAPIType.RegionType
+        land: NaverReverseGeocodingAPIType.LandType
 
     class ResponseType(TypedDict):
         '''
         응답 바디
         Attributes:
-            status (NaverReverseGeocodingAPI.StatusType): 응답 상태에 대한 정보
-            results (list[NaverReverseGeocodingAPI.ResultType]): 응답 결과
+            status (NaverReverseGeocodingAPIType.StatusType): 응답 상태에 대한 정보
+            results (list[NaverReverseGeocodingAPIType.ResultType]): 응답 결과
         '''
-        status: NaverReverseGeocodingAPI.StatusType
-        results: list[NaverReverseGeocodingAPI.ResultType]
+        status: NaverReverseGeocodingAPIType.StatusType
+        results: list[NaverReverseGeocodingAPIType.ResultType]

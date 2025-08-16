@@ -2,7 +2,7 @@ from typing import Literal
 import requests
 from django.conf import settings
 from rest_framework.exceptions import NotFound
-from .types import PositionType, AddressType, NaverGeocodingAPI, NaverReverseGeocodingAPI
+from .types import PositionType, AddressType, NaverGeocodingAPIType, NaverReverseGeocodingAPIType
 
 class NaverMapService:
     def get_geocoding(
@@ -13,7 +13,7 @@ class NaverMapService:
             language:Literal['kor','eng']|None=None,
             page:int|None=None,
             count:int|None=None
-        ) -> NaverGeocodingAPI.ResponseType:
+        ) -> NaverGeocodingAPIType.ResponseType:
         '''
         입력한 주소를 검색하여 좌표를 포함한 상세 정보 제공
         Args:
@@ -29,7 +29,7 @@ class NaverMapService:
                 - `1`: (기본값)
             count (int|None): 결과 목록 크기 `1` ~ `100` (기본값: `10`)
         Returns:
-            response (NaverGeocodingAPI.ResponseType)
+            response (NaverGeocodingAPIType.ResponseType)
         '''
         response = requests.get(
             url='https://maps.apigw.ntruss.com/map-geocode/v2/geocode',
@@ -55,7 +55,7 @@ class NaverMapService:
             sourcecrs:Literal['EPSG:4326','EPSG:3857','NHN:2048']|None=None,
             targetcrs:Literal['EPSG:4326','EPSG:3857','NHN:2048']|None=None,
             orders:list[Literal['legalcode','admcode','addr','roadaddr']]|None=None
-        ) -> NaverReverseGeocodingAPI.ResponseType:
+        ) -> NaverReverseGeocodingAPIType.ResponseType:
         '''
         좌표를 검색하여 법정동, 행정동, 지번 주소, 도로명 주소 등 주소 정보 제공
         Args:
@@ -74,7 +74,7 @@ class NaverMapService:
                 - `'addr'`: 지번 주소로 변환
                 - `'roadaddr'`: 도로명 주소로 변환
         Returns:
-            response (NaverReverseGeocodingAPI.ResponseType)
+            response (NaverReverseGeocodingAPIType.ResponseType)
         '''
         response = requests.get(
             url='https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc',
