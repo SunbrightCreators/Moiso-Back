@@ -2,7 +2,6 @@ from functools import wraps
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound
 
 def example(func):
     '''
@@ -65,8 +64,11 @@ def require_query_params(*required_query_params:str):
 
             if missing_params:
                 missing_str = ', '.join(missing_params)
-                raise NotFound(f"Required query parameters missing: {missing_str}")
-            
+                return Response(
+                    {"detail":f"Required query parameters missing: {missing_str}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator
