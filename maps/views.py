@@ -1,10 +1,13 @@
 from django.http import HttpRequest
+from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from utils.decorators import require_query_params
 from .services import GeocodingService, ReverseGeocodingService
 
 class GeocodingPosition(APIView):
+    @method_decorator(require_query_params('query'))
     def get(self, request:HttpRequest, format=None):
         query = request.query_params.get('query')
 
@@ -17,15 +20,18 @@ class GeocodingPosition(APIView):
         )
 
 class GeocodingLegal(APIView):
+    @method_decorator(require_query_params('query'))
     def get(self, request:HttpRequest, format=None):
         query = request.query_params.get('query')
 
 class GeocodingFull(APIView):
+    @method_decorator(require_query_params('query'))
     def get(self, request:HttpRequest, format=None):
         query = request.query_params.get('query')
         filter = request.query_params.get('filter')
 
 class ReverseGeocodingLegal(APIView):
+    @method_decorator(require_query_params('latitude','longitude'))
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
         longitude = request.query_params.get('longitude')
@@ -42,6 +48,7 @@ class ReverseGeocodingLegal(APIView):
         )
 
 class ReverseGeocodingFull(APIView):
+    @method_decorator(require_query_params('latitude','longitude'))
     def get(self, request:HttpRequest, format=None):
         latitude = request.query_params.get('latitude')
         longitude = request.query_params.get('longitude')
