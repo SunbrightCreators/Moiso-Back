@@ -11,7 +11,6 @@ from django.contrib.postgres.fields import ArrayField
 from .managers import UserManager
 from utils.choices import *
 
-# password, last_login, is_superuser, groups, user_permissions → AbstractUser에서 자동으로 제공.
 class User(AbstractUser):
     # AbstractUser 모델 오버라이딩
     username = None
