@@ -65,12 +65,12 @@ class ReverseGeocodingFull(APIView):
         filter = request.query_params.get('filter')
 
         service = ReverseGeocodingService()
-        address = service.get_position_to_full({
+        full = service.get_position_to_full({
             'latitude': latitude,
             'longitude': longitude,
         })
 
         return Response(
-            address,
+            full,
             status=status.HTTP_200_OK,
         )
