@@ -45,13 +45,15 @@ class ReverseGeocodingLegal(APIView):
         longitude = request.query_params.get('longitude')
 
         service = ReverseGeocodingService()
-        address = service.get_position_to_legal({
-            'latitude': latitude,
-            'longitude': longitude,
-        })
+        legal = service.get_position_to_legal(
+            {
+                'latitude': latitude,
+                'longitude': longitude,
+            }
+        )
 
         return Response(
-            address,
+            legal,
             status=status.HTTP_200_OK,
         )
 
