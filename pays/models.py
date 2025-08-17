@@ -75,6 +75,7 @@ class Payment(models.Model):
         db_table = "payment"
         constraints = [
             models.UniqueConstraint(fields=["order_id"], name="uniq_payment_order_id"),
+            models.UniqueConstraint(fields=['funding', 'user'], name='unique_funding_user')
         ]
 
     def __str__(self):
