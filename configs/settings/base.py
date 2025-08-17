@@ -29,7 +29,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'accounts.apps.AccountsConfig',
-    'accounts.apps.PaysConfig',
+    'pays.apps.PaysConfig',
 ]
 
 MIDDLEWARE = [
