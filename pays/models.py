@@ -28,11 +28,11 @@ class Payment(models.Model):
     #     on_delete=models.PROTECT,
     #     related_name='payments',
     # )
-    # user = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     on_delete=models.PROTECT,
-    #     related_name='payments',
-    # )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='payments',
+    )
 
     version = models.CharField(
         max_length=10,
