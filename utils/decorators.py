@@ -2,6 +2,7 @@ from functools import wraps
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 
 def example(func):
     '''
@@ -50,3 +51,22 @@ def validate_unique(func):
                     status=status.HTTP_409_CONFLICT,
                 )
     return wrapper
+
+def require_query_params(*required_query_params:str):
+    """클라이언트가 필수 쿼리 파라미터를 포함하여 요청했는지 확인합니다."""
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            missing_params = []
+
+            for param in required_query_params:
+                if not request.query_params.get(param):
+                    missing_params.append(param)
+
+            if missing_params:
+                missing_str = ', '.join(missing_params)
+                raise NotFound(f"Required query parameters missing: {missing_str}")
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
