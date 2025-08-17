@@ -23,16 +23,20 @@ class Payment(models.Model):
         max_length=200,
         unique=True,
     )
-    # funding = models.ForeignKey(
-    #     'fundings.Funding',
-    #     on_delete=models.PROTECT,
-    #     related_name='payments',
-    # )
-    # user = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     on_delete=models.PROTECT,
-    #     related_name='payments',
-    # )
+    funding = models.ForeignKey(
+       'fundings.Funding',
+       on_delete=models.PROTECT,
+       related_name='payments',
+       null=True,
+    )
+    '''
+    user = models.ForeignKey(
+         settings.AUTH_USER_MODEL,
+         on_delete=models.PROTECT,
+         related_name='payments',
+         null=True,
+    )
+    '''
 
     version = models.CharField(
         max_length=10,
