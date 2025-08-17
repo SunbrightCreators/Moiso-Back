@@ -24,6 +24,14 @@ class GeocodingLegal(APIView):
     def get(self, request:HttpRequest, format=None):
         query = request.query_params.get('query')
 
+        service = GeocodingService()
+        legal = service.get_address_to_legal(query)
+
+        return Response(
+            legal,
+            status=status.HTTP_200_OK,
+        )
+
 class GeocodingFull(APIView):
     @method_decorator(require_query_params('query'))
     def get(self, request:HttpRequest, format=None):

@@ -74,6 +74,47 @@ class GeocodingService:
             'longitude': float(first_address['y'])
         }
 
+    def get_address_to_legal(self, address:str) -> list[dict]:
+        '''
+        일부 주소로 법정동 주소와 좌표를 검색합니다.
+        Args:
+            address (str): 주소
+        Returns:
+            result (list[dict]):
+                - id (int): 인덱스 번호
+                - address (AddressType.LegalType):
+                    - sido (str): 시도
+                    - sigungu (str): 시군구
+                    - eupmyundong (str): 읍면동
+                - position (PositionType):
+                    - latitude (int): 위도
+                    - longitude (int): 경도
+        '''
+        response = self.get_geocoding(
+            query=address,
+        )
+
+        if not response.get('addresses'):
+            raise NotFound('검색 결과가 없어요.')
+
+        result = list()
+
+        for index, address in enumerate(response['addresses'], start=1):
+            result.append({
+                'id': index,
+                'address': {
+                    'sido': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIDO'), {}).get('longName'),
+                    'sigungu': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIGUGUN'), {}).get('longName'),
+                    'eupmyundong': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'DONGMYUN'), {}).get('longName'),
+                },
+                'position': {
+                    'latitude': address.get('x'),
+                    'longitude': address.get('y'),
+                }
+            })
+
+        return result
+
 class ReverseGeocodingService:
     def get_reverse_geocoding(
             self,
