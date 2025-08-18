@@ -17,7 +17,7 @@ from utils.choices import (
 class Funding(models.Model):
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        "accounts.Founder",
         on_delete=models.CASCADE,
         related_name="fundings",
     )
@@ -36,11 +36,13 @@ class Funding(models.Model):
 
     summary = models.TextField(
         max_length=100,
+        null=True,
         blank=True,
     )
 
     content = models.TextField(
         max_length=1000,
+        null=True,
         blank=True,
     )
 
@@ -49,21 +51,24 @@ class Funding(models.Model):
     ) # {  "start": "시작시간",  "end": "종료시간"}
 
     # 배열 선택 + size=3 (예: 반경 최대 3개 저장)
-    radius = ArrayField(
-        base_field=models.PositiveSmallIntegerField(
-            choices=RadiusChoices.choices
-        ),
-        size=3,
+    radius = models.PositiveSmallIntegerField(
+        choices=RadiusChoices.choices,
     )
 
     image1 = models.ImageField(
         upload_to='funding/image',
+        null=True,
+        blank=True,
     )
     image2 = models.ImageField(
         upload_to='funding/image',
+        null=True,
+        blank=True,
     )
     image3 = models.ImageField(
         upload_to='funding/image',
+        null=True,
+        blank=True,
     )
 
     video1 = models.FileField(
@@ -119,14 +124,12 @@ class Funding(models.Model):
     )
 
     founder_image = models.ImageField(
-        upload_to="fundings/founder/",
+        upload_to="funding/founder_image",
     )
 
-    bank_category = ArrayField(
-        base_field=models.CharField(
-            max_length=10,
-            choices=BankCategoryChoices.choices,
-        )
+    bank_category = models.CharField(
+        max_length=10,
+        choices=BankCategoryChoices.choices,
     )
 
     bank_account = models.CharField(
@@ -134,7 +137,7 @@ class Funding(models.Model):
     )
 
     bank_bankbook = models.FileField(
-        upload_to="fundings/bankbook/",
+        upload_to="funding/bankbook/",
     )
 
     policy = models.TextField(
@@ -162,9 +165,9 @@ class Reward(models.Model):
 
     # 리워드는 펀딩과 분리 생성될 수 있다고 가정(레벨 리워드) → nullable 허용
     funding = models.ForeignKey(
-        Funding,
+        'Funding',
         on_delete=models.CASCADE,
-        related_name="rewards",
+        related_name="reward",
         null=True,
         blank=True,
     )
@@ -205,8 +208,8 @@ class ProposerReward(models.Model):
         alphabetically=ascii_lowercase + digits,
     )
 
-    proposer = models.ForeignKey(
-        "users.Proposer",
+    user = models.ForeignKey(
+        "accounts.Proposer",
         on_delete=models.CASCADE,
         related_name="proposer_reward",
     )
@@ -222,14 +225,12 @@ class ProposerReward(models.Model):
         choices=RewardStatusChoices.choices,
     )
 
-
     def __str__(self):
-        return f"ProposerReward(proposer={self.proposer_id}, reward={self.reward_id})"
-
+        return f"ProposerReward(proposer={self.user__id}, reward={self.reward__id})"
 
 class FounderScrapFunding(models.Model):
-    founder = models.ForeignKey(
-        "users.Founder",
+    user = models.ForeignKey(
+        "accounts.Founder",
         on_delete=models.CASCADE,
         related_name="founder_scrap_funding",
     )
@@ -246,18 +247,18 @@ class FounderScrapFunding(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["founder", "funding"],
-                name="unique_founder_scrap_funding",
+                fields=["user", "funding"],
+                name="unique_user_scrap_funding",
             )
         ]
 
     def __str__(self):
-        return f"FounderScrapFunding(founder={self.founder_id}, funding={self.funding_id})"
+        return f"FounderScrapFunding(founder={self.user__id}, funding={self.funding__id})"
 
 
 class ProposerLikeFunding(models.Model):
-    proposer = models.ForeignKey(
-        "users.Proposer",
+    user = models.ForeignKey(
+        "accounts.Proposer",
         on_delete=models.CASCADE,
         related_name="proposer_like_funding",
     )
@@ -274,18 +275,18 @@ class ProposerLikeFunding(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["proposer", "funding"],
-                name="unique_proposer_like_funding",
+                fields=["user", "funding"],
+                name="unique_user_like_funding",
             )
         ]
 
     def __str__(self):
-        return f"ProposerLikeFunding(proposer={self.proposer_id}, funding={self.funding_id})"
+        return f"ProposerLikeFunding(proposer={self.user__id}, funding={self.funding__id})"
 
 
 class ProposerScrapFunding(models.Model):
-    proposer = models.ForeignKey(
-        "users.Proposer",
+    user = models.ForeignKey(
+        "accounts.Proposer",
         on_delete=models.CASCADE,
         related_name="proposer_scrap_funding",
     )
@@ -302,13 +303,13 @@ class ProposerScrapFunding(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["proposer", "funding"],
-                name="unique_proposer_scrap_funding",
+                fields=["user", "funding"],
+                name="unique_user_funding",
             )
         ]
 
     def __str__(self):
-        return f"ProposerScrapFunding(proposer={self.proposer_id}, funding={self.funding_id})"
+        return f"ProposerScrapFunding(proposer={self.user__id}, funding={self.funding__id})"
 
 
 

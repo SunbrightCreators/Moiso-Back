@@ -26,7 +26,7 @@ class Payment(models.Model):
     funding = models.ForeignKey(
        'fundings.Funding',
        on_delete=models.PROTECT,
-       related_name='payments',
+       related_name='payment',
        null=True,
     )
     '''
@@ -264,7 +264,7 @@ class CashReceipt(models.Model):
     payment = models.ForeignKey(
         Payment,
         on_delete=models.CASCADE,
-        related_name='cash_receipts',
+        related_name='cash_receipt',
     )
 
     type = models.CharField(
