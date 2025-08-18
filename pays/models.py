@@ -31,7 +31,7 @@ class Payment(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name='payments',
+        related_name='payment',
     )
 
     version = models.CharField(

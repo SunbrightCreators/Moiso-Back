@@ -4,7 +4,6 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.utils import timezone
 from django_nanoid.models import NANOIDField
 from django.contrib.postgres.fields import ArrayField
 
@@ -62,7 +61,7 @@ class User(AbstractUser):
 class PushSubscription(models.Model):
 
     user = models.ForeignKey(
-        "Proposer",
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="push_subscription"
     )
@@ -122,6 +121,7 @@ class Proposer(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        related_name='proposer',
     )
 
     industry = ArrayField(
@@ -137,6 +137,7 @@ class ProposerLevel(models.Model):
     user = models.ForeignKey(
         "Proposer",
         on_delete=models.CASCADE,
+        related_name="proposer_level",
     )
 
     address = models.JSONField(
@@ -202,7 +203,8 @@ class Founder(models.Model):
     )
     address = ArrayField(
         base_field=models.JSONField(),  
-        size=2,                             
+        size=2,
+        default=dict,                             
     )
 
     target = ArrayField(
@@ -212,4 +214,6 @@ class Founder(models.Model):
         ),
         size=2,
     )
-    business_hours = models.JSONField()  # { start, end }
+    business_hours = models.JSONField(
+        default=dict,
+    )  # { start, end }
