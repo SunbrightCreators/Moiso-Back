@@ -222,7 +222,7 @@ class Cancel(models.Model):
         null=True,
         blank=True,
     )
-    cancel_status = models.CharField()
+    cancel_status = models.TextField()
     cancel_request_id = models.CharField(
         max_length=64,
         null=True,
