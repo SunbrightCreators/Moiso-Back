@@ -54,8 +54,6 @@ class Funding(models.Model):
 
     image1 = models.ImageField(
         upload_to='funding/image',
-        null=True,
-        blank=True,
     )
     image2 = models.ImageField(
         upload_to='funding/image',
@@ -68,17 +66,7 @@ class Funding(models.Model):
         blank=True,
     )
 
-    video1 = models.FileField(
-        upload_to='funding/video',
-        null=True,
-        blank=True,
-    )
-    video2 = models.FileField(
-        upload_to='funding/video',
-        null=True,
-        blank=True,
-    )
-    video3 = models.FileField(
+    video = models.FileField(
         upload_to='funding/video',
         null=True,
         blank=True,
