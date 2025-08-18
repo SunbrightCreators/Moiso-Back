@@ -202,9 +202,10 @@ class Founder(models.Model):
         size=3,
     )
     address = ArrayField(
-        base_field=models.JSONField(),  
-        size=2,
-        default=dict,                             
+        base_field=models.JSONField(
+            default=dict,
+        ),  
+        size=2,          
     )
 
     target = ArrayField(

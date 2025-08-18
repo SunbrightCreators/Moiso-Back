@@ -29,7 +29,7 @@ class Payment(models.Model):
     #     related_name='payments',
     # )
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+         "accounts.Proposer",
         on_delete=models.PROTECT,
         related_name='payment',
     )
