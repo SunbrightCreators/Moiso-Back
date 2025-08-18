@@ -27,8 +27,8 @@ class Proposal(models.Model):
         default=dict,
         help_text='''
         {
-            'start': '09:00',
-            'end': '18:00',
+            "start": "09:00",
+            "end": "18:00",
         }
         '''
     )
@@ -36,11 +36,11 @@ class Proposal(models.Model):
         default=dict,
         help_text='''
         {
-            'sido': '전라남도',
-            'sigungu': '광양시',
-            'eupmyundong': '광양읍',
-            'jibun_detail': '읍내리 252-1',
-            'road_detail': '매일시장길 20'
+            "sido": "전라남도",
+            "sigungu": "광양시",
+            "eupmyundong": "광양읍",
+            "jibun_detail": "읍내리 252-1",
+            "road_detail": "매일시장길 20"
         }
         '''
     )
