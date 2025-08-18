@@ -29,14 +29,11 @@ class Payment(models.Model):
        related_name='payment',
        null=True,
     )
-    '''
-    user = models.ForeignKey(
-         settings.AUTH_USER_MODEL,
-         on_delete=models.PROTECT,
-         related_name='payments',
-         null=True,
-    )
-    '''
+    # user = models.ForeignKey(
+    #     settings.AUTH_USER_MODEL,
+    #     on_delete=models.PROTECT,
+    #     related_name='payments',
+    # )
 
     version = models.CharField(
         max_length=10,
