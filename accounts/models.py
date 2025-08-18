@@ -122,7 +122,6 @@ class Proposer(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="proposer",
     )
 
     industry = ArrayField(
@@ -140,7 +139,9 @@ class ProposerLevel(models.Model):
         on_delete=models.CASCADE,
     )
 
-    address = models.JSONField()  # { sido, sigungu, eupmyundong }
+    address = models.JSONField(
+        default=dict,
+    ) 
 
     level = models.PositiveSmallIntegerField(
         validators=[
@@ -161,7 +162,9 @@ class LocationHistory(models.Model):
         auto_now_add=True,
     )
 
-    address = models.JSONField()  # { sido, sigungu, eupmyundong }
+    address = models.JSONField(
+        default=dict,
+    )  # { sido, sigungu, eupmyundong }
 
     class Meta:
         constraints = [
