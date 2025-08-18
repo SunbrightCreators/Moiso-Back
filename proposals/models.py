@@ -16,7 +16,7 @@ class Proposal(models.Model):
     title = models.CharField(
         max_length=50,
     )
-    content = models.TextField(
+    content = models.CharField(
         max_length=1000,
     )
     industry = models.CharField(
