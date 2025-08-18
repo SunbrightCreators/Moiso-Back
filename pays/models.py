@@ -23,7 +23,7 @@ class Payment(models.Model):
         unique=True,
     )
     funding = models.ForeignKey(
-       'fundings.Funding',
+       "Funding",
        on_delete=models.PROTECT,
        related_name='payment',
     )
@@ -61,6 +61,7 @@ class Payment(models.Model):
     method = models.CharField(
         max_length=20,
         choices=PaymentMethodChoices.choices,
+        blank=True,
     )
     total_amount = models.PositiveIntegerField()
     balance_amount = models.PositiveIntegerField()
@@ -76,32 +77,18 @@ class Payment(models.Model):
     )
 
     # 옵션/정산 관련
-    use_escrow = models.BooleanField(
-        default=False,
-    )
+    use_escrow = models.BooleanField()
     last_transaction_key = models.CharField(
         max_length=64,
         null=True,
         blank=True,
     )
-    supplied_amount = models.PositiveIntegerField(
-        default=0,
-    )
-    vat = models.PositiveIntegerField(
-        default=0,
-    )
-    culture_expense = models.BooleanField(
-        default=False,
-    )
-    tax_free_amount = models.PositiveIntegerField(
-        default=0,
-    )
-    tax_exemption_amount = models.PositiveIntegerField(
-        default=0,
-    )
-    is_partial_cancelable = models.BooleanField(
-        default=False,
-    )
+    supplied_amount = models.PositiveIntegerField()
+    vat = models.PositiveIntegerField()
+    culture_expense = models.BooleanField()
+    tax_free_amount = models.PositiveIntegerField()
+    tax_exemption_amount = models.PositiveIntegerField()
+    is_partial_cancelable = models.BooleanField()
 
     # 수단별 세부 정보(토스 원문 JSON 그대로 적재)
     card = models.JSONField(
@@ -134,6 +121,7 @@ class Payment(models.Model):
     metadata = models.JSONField(
         null=True,
         blank=True,
+        help_text="결제 요청 시 추가할 수 있는 metadata (최대 5개, key 최대 40자, value 최대 500자)"
     )
     receipt = models.JSONField(
         null=True,
@@ -156,6 +144,23 @@ class Payment(models.Model):
         null=True,
         blank=True,
     )
+    @property
+    def cash_receipt(self):
+        """
+        최신 현금영수증 1건을 API 응답 형태로 반환
+        """
+        cr = self.cash_receipts.order_by('-requested_at').first()
+        if not cr:
+            return None
+        return {
+            "type": cr.get_type_display(),
+            "receiptKey": cr.receipt_key,
+            "issueNumber": cr.issue_number,
+            "receiptUrl": cr.receipt_url,
+            "amount": cr.amount,
+            "taxFreeAmount": cr.tax_free_amount,
+        }
+    
     discount = models.JSONField(
         null=True,
         blank=True,
@@ -185,24 +190,6 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.order_id} / {self.get_status_display()}"
-
-    @property
-    def cash_receipt(self):
-        """
-        최신 현금영수증 1건을 API 응답 형태로 반환
-        """
-        cr = self.cash_receipts.order_by('-requested_at').first()
-        if not cr:
-            return None
-
-        return {
-            "type": cr.get_type_display(),
-            "receiptKey": cr.receipt_key,
-            "issueNumber": cr.issue_number,
-            "receiptUrl": cr.receipt_url,
-            "amount": cr.amount,
-            "taxFreeAmount": cr.tax_free_amount,
-        }
 
 
 class Cancel(models.Model):
@@ -235,9 +222,7 @@ class Cancel(models.Model):
         null=True,
         blank=True,
     )
-    cancel_status = models.CharField(
-        
-    )
+    cancel_status = models.CharField()
     cancel_request_id = models.CharField(
         max_length=64,
         null=True,
