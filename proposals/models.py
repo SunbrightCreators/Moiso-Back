@@ -74,3 +74,30 @@ class Proposal(models.Model):
 
     def __str__(self):
         return self.title
+
+class ProposerLikeProposal(models.Model):
+    user = models.ForeignKey(
+        'accounts.Proposer',
+        on_delete=models.CASCADE,
+        related_name='proposer_like_proposal',
+    )
+    proposal = models.ForeignKey(
+        'Proposal',
+        on_delete=models.CASCADE,
+        related_name='proposer_like_proposal',
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return f'{self.user.user.email} 님이 {self.proposal.title} 제안글을 좋아해요.'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user','proposal'],
+                name='unique_user_proposal',
+                violation_error_message='제안자는 제안글을 한 번만 좋아요할 수 있어요.',
+            )
+        ]
