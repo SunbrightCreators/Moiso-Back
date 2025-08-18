@@ -11,7 +11,6 @@ from utils.choices import (
     CashReceiptIssueStatusChoices,
 )
 
-
 class Payment(models.Model):
     """
     결제(토스 위젯/가상계좌/간편결제 공통)
@@ -27,7 +26,6 @@ class Payment(models.Model):
        'fundings.Funding',
        on_delete=models.PROTECT,
        related_name='payment',
-       null=True,
     )
     # user = models.ForeignKey(
     #     settings.AUTH_USER_MODEL,
@@ -239,7 +237,9 @@ class Cancel(models.Model):
         null=True,
         blank=True,
     )
-    cancel_status = models.CharField()
+    cancel_status = models.CharField(
+        
+    )
     cancel_request_id = models.CharField(
         max_length=64,
         null=True,
