@@ -223,7 +223,7 @@ class ProposerReward(models.Model):
     )
 
     def __str__(self):
-        return f"ProposerReward(proposer={self.user_id}, reward={self.reward_id})"
+        return f"ProposerReward(proposer={self.user.id}, reward={self.reward.id})"
 
 class FounderScrapFunding(models.Model):
     user = models.ForeignKey(
@@ -250,7 +250,7 @@ class FounderScrapFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"FounderScrapFunding(founder={self.user_id}, funding={self.funding_id})"
+        return f"FounderScrapFunding(founder={self.user.id}, funding={self.funding.id})"
 
 
 class ProposerLikeFunding(models.Model):
@@ -278,7 +278,7 @@ class ProposerLikeFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"ProposerLikeFunding(proposer={self.user_id}, funding={self.funding_id})"
+        return f"ProposerLikeFunding(proposer={self.user.id}, funding={self.funding.id})"
 
 
 class ProposerScrapFunding(models.Model):
@@ -306,7 +306,7 @@ class ProposerScrapFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"ProposerScrapFunding(proposer={self.user_id}, funding={self.funding_id})"
+        return f"ProposerScrapFunding(proposer={self.user.id}, funding={self.funding.id})"
 
 
 
