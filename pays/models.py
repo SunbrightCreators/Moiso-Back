@@ -176,7 +176,6 @@ class Payment(models.Model):
         blank=True,
     )
 
-    '''
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -184,7 +183,6 @@ class Payment(models.Model):
                 name='unique_funding_user',
             )
         ]
-    '''
 
     def __str__(self):
         return f"{self.order_id} / {self.get_status_display()}"
