@@ -18,3 +18,23 @@ class Notification(models.Model):
 
     class Meta:
         abstract = True
+
+class ProposerNotification(Notification):
+    user = models.ForeignKey(
+        'accounts.Proposer',
+        on_delete=models.CASCADE,
+        related_name='proposer_notification',
+    )
+
+    def __str__(self):
+        return f'{self.user.user.email} 님, {self.body}'
+
+class FounderNotification(Notification):
+    user = models.ForeignKey(
+        'accounts.Founder',
+        on_delete=models.CASCADE,
+        related_name='founder_notification',
+    )
+
+    def __str__(self):
+        return f'{self.user.user.email} 님, {self.body}'
