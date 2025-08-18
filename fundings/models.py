@@ -1,3 +1,5 @@
+from string import ascii_lowercase, digits
+from django_nanoid.models import NANOIDField
 from django.conf import settings
 from django.core.validators import RegexValidator, MaxLengthValidator
 from django.db import models
@@ -9,18 +11,10 @@ from utils.choices import (
     FundingStatusChoices,
     RewardCategoryChoices,
     RewardAmountChoices,
+    RewardStatusChoices,
 )
-
-yyyymm_validator = RegexValidator(
-    regex=r"^\d{4}-(0[1-9]|1[0-2])$",
-    message="YYYY-MM 형식으로 입력하세요!",
-)
-
 
 class Funding(models.Model):
-    id = models.BigAutoField(
-        primary_key=True
-    )
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -41,16 +35,18 @@ class Funding(models.Model):
     )
 
     summary = models.TextField(
-        validators=[MaxLengthValidator(100)],
+        max_length=100,
         blank=True,
     )
 
     content = models.TextField(
-        validators=[MaxLengthValidator(1000)],
+        max_length=1000,
         blank=True,
     )
 
-    business_hours = models.JSONField() # {  "start": "시작시간",  "end": "종료시간"}
+    business_hours = models.JSONField(
+        default=dict,
+    ) # {  "start": "시작시간",  "end": "종료시간"}
 
     # 배열 선택 + size=3 (예: 반경 최대 3개 저장)
     radius = ArrayField(
@@ -60,29 +56,58 @@ class Funding(models.Model):
         size=3,
     )
 
+    image1 = models.ImageField(
+        upload_to='funding/image',
+    )
+    image2 = models.ImageField(
+        upload_to='funding/image',
+    )
+    image3 = models.ImageField(
+        upload_to='funding/image',
+    )
+
+    video1 = models.FileField(
+        upload_to='funding/video',
+        null=True,
+        blank=True,
+    )
+    video2 = models.FileField(
+        upload_to='funding/video',
+        null=True,
+        blank=True,
+    )
+    video3 = models.FileField(
+        upload_to='funding/video',
+        null=True,
+        blank=True,
+    )
+
     contact = models.CharField(
         max_length=50,
-        blank=True,
     )
 
     goal_amount = models.PositiveBigIntegerField()
 
     schedule = models.JSONField( # {  "start": "시작일",  "end": "종료일"}
-        blank=True,
+        default=dict,
     )
 
     schedule_description = models.TextField(
-        validators=[MaxLengthValidator(1000)],
-        blank=True,
+       max_length=1000,
     )
 
     expected_opening_date = models.CharField(
         max_length=7,
-        validators=[yyyymm_validator],
+        validators=[
+            RegexValidator(
+                regex=r"^\d{4}-(0[1-9]|1[0-2])$",
+                message="YYYY-MM 형식으로 입력하세요!",
+            )
+        ],
     )
 
     amount_description = models.TextField(
-        validators=[MaxLengthValidator(1000)],
+        max_length=1000,
     )
 
     founder_name = models.CharField(
@@ -90,7 +115,7 @@ class Funding(models.Model):
     )
 
     founder_description = models.TextField(
-        validators=[MaxLengthValidator(500)],
+        max_length=500,
     )
 
     founder_image = models.ImageField(
@@ -101,8 +126,7 @@ class Funding(models.Model):
         base_field=models.CharField(
             max_length=10,
             choices=BankCategoryChoices.choices,
-        ),
-        size=2,
+        )
     )
 
     bank_account = models.CharField(
@@ -114,11 +138,11 @@ class Funding(models.Model):
     )
 
     policy = models.TextField(
-        validators=[MaxLengthValidator(500)],
+        max_length=500,
     )
 
     expected_problem = models.TextField(
-        validators=[MaxLengthValidator(500)],
+        max_length=500,
     )
 
     status = models.CharField(
@@ -132,43 +156,9 @@ class Funding(models.Model):
 
     def __str__(self):
         return f"[{self.id}] {self.title}"
-
-
-class FundingImage(models.Model):
-    funding = models.ForeignKey(
-        Funding,
-        on_delete=models.CASCADE,
-        related_name="images",
-    )
-
-    image = models.ImageField(
-        upload_to="fundings/images/",
-    )
-
-    def __str__(self):
-        return f"FundingImage({self.funding_id})"
-
-
-class FundingVideo(models.Model):
-    funding = models.ForeignKey(
-        Funding,
-        on_delete=models.CASCADE,
-        related_name="videos",
-    )
-
-    file = models.FileField(
-        upload_to="fundings/videos/",
-        blank=True,
-    )
-
-    def __str__(self):
-        return f"FundingVideo({self.funding_id})"
-
+    
 
 class Reward(models.Model):
-    id = models.BigAutoField(
-        primary_key=True
-    )
 
     # 리워드는 펀딩과 분리 생성될 수 있다고 가정(레벨 리워드) → nullable 허용
     funding = models.ForeignKey(
@@ -189,7 +179,7 @@ class Reward(models.Model):
     )
 
     content = models.TextField(
-        validators=[MaxLengthValidator(50)],
+         max_length=50,
     )
 
     amount = models.PositiveSmallIntegerField(
@@ -203,3 +193,122 @@ class Reward(models.Model):
 
     def __str__(self):
         return f"[{self.id}] {self.title}"
+    
+
+class ProposerReward(models.Model):
+
+    id = NANOIDField(
+        primary_key=True,
+        size=21,
+        editable=False,
+        secure_generated=True,
+        alphabetically=ascii_lowercase + digits,
+    )
+
+    proposer = models.ForeignKey(
+        "users.Proposer",
+        on_delete=models.CASCADE,
+        related_name="proposer_reward",
+    )
+
+    reward = models.ForeignKey(
+        "Reward",
+        on_delete=models.CASCADE,
+        related_name="proposer_reward",
+    )
+
+    status = models.CharField(
+        max_length=7,
+        choices=RewardStatusChoices.choices,
+    )
+
+
+    def __str__(self):
+        return f"ProposerReward(proposer={self.proposer_id}, reward={self.reward_id})"
+
+
+class FounderScrapFunding(models.Model):
+    founder = models.ForeignKey(
+        "users.Founder",
+        on_delete=models.CASCADE,
+        related_name="founder_scrap_funding",
+    )
+    funding = models.ForeignKey(
+        "Funding",
+        on_delete=models.CASCADE,
+        related_name="founder_scrap_funding",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["founder", "funding"],
+                name="unique_founder_scrap_funding",
+            )
+        ]
+
+    def __str__(self):
+        return f"FounderScrapFunding(founder={self.founder_id}, funding={self.funding_id})"
+
+
+class ProposerLikeFunding(models.Model):
+    proposer = models.ForeignKey(
+        "users.Proposer",
+        on_delete=models.CASCADE,
+        related_name="proposer_like_funding",
+    )
+    funding = models.ForeignKey(
+        "Funding",
+        on_delete=models.CASCADE,
+        related_name="proposer_like_funding",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proposer", "funding"],
+                name="unique_proposer_like_funding",
+            )
+        ]
+
+    def __str__(self):
+        return f"ProposerLikeFunding(proposer={self.proposer_id}, funding={self.funding_id})"
+
+
+class ProposerScrapFunding(models.Model):
+    proposer = models.ForeignKey(
+        "users.Proposer",
+        on_delete=models.CASCADE,
+        related_name="proposer_scrap_funding",
+    )
+    funding = models.ForeignKey(
+        "Funding",
+        on_delete=models.CASCADE,
+        related_name="proposer_scrap_funding",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proposer", "funding"],
+                name="unique_proposer_scrap_funding",
+            )
+        ]
+
+    def __str__(self):
+        return f"ProposerScrapFunding(proposer={self.proposer_id}, funding={self.funding_id})"
+
+
+
