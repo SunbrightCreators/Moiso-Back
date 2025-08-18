@@ -17,7 +17,7 @@ class Funding(models.Model):
     user = models.ForeignKey(
         "accounts.Founder",
         on_delete=models.CASCADE,
-        related_name="fundings",
+        related_name="funding",
     )
 
     '''
@@ -122,7 +122,7 @@ class Funding(models.Model):
     )
 
     bank_bankbook = models.FileField(
-        upload_to="funding/bankbook/",
+        upload_to="funding/bank_bankbook",
     )
 
     policy = models.CharField(
