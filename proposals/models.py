@@ -97,7 +97,7 @@ class ProposerLikeProposal(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['user','proposal'],
-                name='unique_user_proposal',
+                name='unique_proposer_like_proposal',
                 violation_error_message='제안자는 제안글을 한 번만 좋아요할 수 있어요.',
             )
         ]
@@ -124,7 +124,7 @@ class ProposerScrapProposal(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['user','proposal'],
-                name='unique_user_proposal',
+                name='unique_proposer_scrap_proposal',
                 violation_error_message='제안자는 제안글을 한 번만 스크랩할 수 있어요.',
             )
         ]
@@ -151,7 +151,7 @@ class FounderScrapProposal(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['user','proposal'],
-                name='unique_user_proposal',
+                name='unique_founder_scrap_proposal',
                 violation_error_message='창업자는 제안글을 한 번만 스크랩할 수 있어요.',
             )
         ]
