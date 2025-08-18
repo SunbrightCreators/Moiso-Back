@@ -4,12 +4,6 @@ from .models import *
 from .forms import CustomUserChangeForm, CustomAdminUserCreationForm
 
 class CustomUserAdmin(UserAdmin):
-    form = CustomUserChangeForm
-    add_form = CustomAdminUserCreationForm
-    
-    list_display = ("email","is_staff",)
-    search_fields = ("email",)
-    ordering = ("email",)
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -40,6 +34,11 @@ class CustomUserAdmin(UserAdmin):
             ),
         }),
     )
+    form = CustomUserChangeForm
+    add_form = CustomAdminUserCreationForm
+    list_display = ("email","is_staff",)
+    search_fields = ("email",)
+    ordering = ("email",)
 
 admin.site.register(User, CustomUserAdmin)
 admin.site.register(Proposer)
