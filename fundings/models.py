@@ -233,7 +233,7 @@ class FounderScrapFunding(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "funding"],
-                name="unique_user_scrap_funding",
+                name="unique_founder_scrap_funding",
             )
         ]
 
@@ -261,7 +261,7 @@ class ProposerLikeFunding(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "funding"],
-                name="unique_user_like_funding",
+                name="unique_proposer_like_funding",
             )
         ]
 
@@ -289,7 +289,7 @@ class ProposerScrapFunding(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "funding"],
-                name="unique_user_funding",
+                name="unique_proposer_scrap_funding",
             )
         ]
 
