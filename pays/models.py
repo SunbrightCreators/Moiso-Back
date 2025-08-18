@@ -27,11 +27,11 @@ class Payment(models.Model):
        on_delete=models.PROTECT,
        related_name='payment',
     )
-    # user = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     on_delete=models.PROTECT,
-    #     related_name='payments',
-    # )
+    user = models.ForeignKey(
+         "accounts.Proposer",
+        on_delete=models.PROTECT,
+        related_name='payment',
+    )
 
     version = models.CharField(
         max_length=10,
@@ -175,7 +175,6 @@ class Payment(models.Model):
         blank=True,
     )
 
-    '''
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -183,7 +182,6 @@ class Payment(models.Model):
                 name='unique_funding_user',
             )
         ]
-    '''
 
     def __str__(self):
         return f"{self.order_id} / {self.get_status_display()}"
