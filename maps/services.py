@@ -230,7 +230,6 @@ class ReverseGeocodingService:
         if roadaddr:
             road_detail = ' '.join(
                 filter(None, [
-                    roadaddr.get('region', {}).get('area4', {}).get('name'),
                     roadaddr.get('land', {}).get('name'),
                     roadaddr.get('land', {}).get('number1'),
                 ])
