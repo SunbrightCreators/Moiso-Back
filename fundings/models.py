@@ -1,9 +1,7 @@
 from string import ascii_lowercase, digits
 from django_nanoid.models import NANOIDField
-from django.conf import settings
 from django.core.validators import RegexValidator, MaxLengthValidator
 from django.db import models
-from django.contrib.postgres.fields import ArrayField
 
 from utils.choices import (
     RadiusChoices,
@@ -34,13 +32,13 @@ class Funding(models.Model):
         max_length=50,
     )
 
-    summary = models.TextField(
+    summary = models.CharField(
         max_length=100,
         null=True,
         blank=True,
     )
 
-    content = models.TextField(
+    content = models.CharField(
         max_length=1000,
         null=True,
         blank=True,
@@ -96,7 +94,7 @@ class Funding(models.Model):
         default=dict,
     )
 
-    schedule_description = models.TextField(
+    schedule_description = models.CharField(
        max_length=1000,
     )
 
@@ -110,7 +108,7 @@ class Funding(models.Model):
         ],
     )
 
-    amount_description = models.TextField(
+    amount_description = models.CharField(
         max_length=1000,
     )
 
@@ -118,7 +116,7 @@ class Funding(models.Model):
         max_length=30,
     )
 
-    founder_description = models.TextField(
+    founder_description = models.CharField(
         max_length=500,
     )
 
@@ -139,11 +137,11 @@ class Funding(models.Model):
         upload_to="funding/bankbook/",
     )
 
-    policy = models.TextField(
+    policy = models.CharField(
         max_length=500,
     )
 
-    expected_problem = models.TextField(
+    expected_problem = models.CharField(
         max_length=500,
     )
 
@@ -180,7 +178,7 @@ class Reward(models.Model):
         max_length=30,
     )
 
-    content = models.TextField(
+    content = models.CharField(
          max_length=50,
     )
 
@@ -225,7 +223,7 @@ class ProposerReward(models.Model):
     )
 
     def __str__(self):
-        return f"ProposerReward(proposer={self.user__id}, reward={self.reward__id})"
+        return f"ProposerReward(proposer={self.user_id}, reward={self.reward_id})"
 
 class FounderScrapFunding(models.Model):
     user = models.ForeignKey(
@@ -252,7 +250,7 @@ class FounderScrapFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"FounderScrapFunding(founder={self.user__id}, funding={self.funding__id})"
+        return f"FounderScrapFunding(founder={self.user_id}, funding={self.funding_id})"
 
 
 class ProposerLikeFunding(models.Model):
@@ -280,7 +278,7 @@ class ProposerLikeFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"ProposerLikeFunding(proposer={self.user__id}, funding={self.funding__id})"
+        return f"ProposerLikeFunding(proposer={self.user_id}, funding={self.funding_id})"
 
 
 class ProposerScrapFunding(models.Model):
@@ -308,7 +306,7 @@ class ProposerScrapFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"ProposerScrapFunding(proposer={self.user__id}, funding={self.funding__id})"
+        return f"ProposerScrapFunding(proposer={self.user_id}, funding={self.funding_id})"
 
 
 

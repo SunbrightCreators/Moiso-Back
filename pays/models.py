@@ -223,7 +223,7 @@ class Cancel(models.Model):
     )
 
     cancel_amount = models.PositiveIntegerField()
-    cancel_reason = models.TextField(
+    cancel_reason = models.CharField(
         max_length=200,
     )
     tax_free_amount = models.PositiveIntegerField()
@@ -242,7 +242,7 @@ class Cancel(models.Model):
         null=True,
         blank=True,
     )
-    cancel_status = models.TextField()
+    cancel_status = models.CharField()
     cancel_request_id = models.CharField(
         max_length=64,
         null=True,
