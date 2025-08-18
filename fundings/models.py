@@ -50,7 +50,6 @@ class Funding(models.Model):
         default=dict,
     ) # {  "start": "시작시간",  "end": "종료시간"}
 
-    # 배열 선택 + size=3 (예: 반경 최대 3개 저장)
     radius = models.PositiveSmallIntegerField(
         choices=RadiusChoices.choices,
     )
