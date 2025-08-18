@@ -11,7 +11,6 @@ from utils.choices import (
     CashReceiptIssueStatusChoices,
 )
 
-
 class Payment(models.Model):
     """
     결제(토스 위젯/가상계좌/간편결제 공통)
@@ -23,11 +22,11 @@ class Payment(models.Model):
         max_length=200,
         unique=True,
     )
-    # funding = models.ForeignKey(
-    #     'fundings.Funding',
-    #     on_delete=models.PROTECT,
-    #     related_name='payments',
-    # )
+    funding = models.ForeignKey(
+       'fundings.Funding',
+       on_delete=models.PROTECT,
+       related_name='payment',
+    )
     user = models.ForeignKey(
          "accounts.Proposer",
         on_delete=models.PROTECT,
@@ -217,7 +216,7 @@ class Cancel(models.Model):
     )
 
     cancel_amount = models.PositiveIntegerField()
-    cancel_reason = models.TextField(
+    cancel_reason = models.CharField(
         max_length=200,
     )
     tax_free_amount = models.PositiveIntegerField()
@@ -236,7 +235,9 @@ class Cancel(models.Model):
         null=True,
         blank=True,
     )
-    cancel_status = models.TextField()
+    cancel_status = models.CharField(
+        
+    )
     cancel_request_id = models.CharField(
         max_length=64,
         null=True,
@@ -258,7 +259,7 @@ class CashReceipt(models.Model):
     payment = models.ForeignKey(
         Payment,
         on_delete=models.CASCADE,
-        related_name='cash_receipts',
+        related_name='cash_receipt',
     )
 
     type = models.CharField(

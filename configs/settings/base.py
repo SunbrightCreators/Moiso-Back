@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'accounts.apps.AccountsConfig',
     'proposals.apps.ProposalsConfig',
     'pays.apps.PaysConfig',
+    'fundings.apps.FundingsConfig',
     'notifications.apps.NotificationsConfig',
 ]
 
