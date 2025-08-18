@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import ProposerNotification, FounderNotification
 
-# Register your models here.
+admin.site.register(ProposerNotification)
+admin.site.register(FounderNotification)
