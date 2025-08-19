@@ -1,6 +1,6 @@
 from string import ascii_lowercase, digits
 from django_nanoid.models import NANOIDField
-from django.core.validators import RegexValidator, MaxLengthValidator
+from django.core.validators import RegexValidator
 from django.db import models
 from utils.choices import (
     RadiusChoices,
