@@ -152,22 +152,6 @@ class Payment(models.Model):
         blank=True,
         default=dict,
     )
-    @property
-    def cash_receipt(self):
-        """
-        최신 현금영수증 1건을 API 응답 형태로 반환
-        """
-        cr = self.cash_receipts.order_by('-requested_at').first()
-        if not cr:
-            return None
-        return {
-            "type": cr.type,
-            "receiptKey": cr.receipt_key,
-            "issueNumber": cr.issue_number,
-            "receiptUrl": cr.receipt_url,
-            "amount": cr.amount,
-            "taxFreeAmount": cr.tax_free_amount,
-        }
     discount = models.JSONField(
         null=True,
         blank=True,
@@ -198,6 +182,23 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.order_id} / {self.status}"
+
+    @property
+    def cash_receipt(self):
+        """
+        최신 현금영수증 1건을 API 응답 형태로 반환
+        """
+        cr = self.cash_receipts.order_by('-requested_at').first()
+        if not cr:
+            return None
+        return {
+            "type": cr.type,
+            "receiptKey": cr.receipt_key,
+            "issueNumber": cr.issue_number,
+            "receiptUrl": cr.receipt_url,
+            "amount": cr.amount,
+            "taxFreeAmount": cr.tax_free_amount,
+        }
 
 class Cancel(models.Model):
     """
