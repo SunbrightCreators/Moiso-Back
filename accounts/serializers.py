@@ -58,3 +58,8 @@ class LoginSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+    
+class AccessTokenRefreshSerializer(serializers.Serializer):
+    grant_type = serializers.CharField(allow_null=False, allow_blank=False)
+    refresh_token = serializers.CharField(allow_null=False, allow_blank=False)
+

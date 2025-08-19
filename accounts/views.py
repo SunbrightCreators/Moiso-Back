@@ -6,9 +6,13 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from .serializers import LoginSerializer
 from .models import Proposer, Founder
+
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer as SJWTokenRefreshSerializer
+
+from .serializers import AccessTokenRefreshSerializer
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -46,5 +50,47 @@ class LoginView(APIView):
             "profile": profiles,
         }
         return Response(body, status=status.HTTP_200_OK)
+    
 
+class AccessTokenIssueView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # 1) 입력 검증 (누락/null/blank 처리)
+        serializer = AccessTokenRefreshSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        refresh_str = serializer.validated_data["refresh_token"]
+
+        # 2) SimpleJWT의 refresh 로직을 그대로 사용 (회전/검증 포함)
+        sjw = SJWTokenRefreshSerializer(data={"refresh": refresh_str})
+        sjw.is_valid(raise_exception=True)
+        sjw_data = sjw.validated_data  # {'access': '...', ['refresh': '...']}
+
+        access_str = sjw_data["access"]
+        # 회전 설정에 따라 새 refresh가 있을 수도/없을 수도 있음
+        new_refresh_str = sjw_data.get("refresh", refresh_str)
+
+        # 3) 만료시각 계산 (exp → ISO8601 'Z')
+        access_exp = timezone.datetime.fromtimestamp(
+            AccessToken(access_str)["exp"], tz=timezone.utc
+        ).isoformat().replace("+00:00", "Z")
+
+        refresh_exp = timezone.datetime.fromtimestamp(
+            RefreshToken(new_refresh_str)["exp"], tz=timezone.utc
+        ).isoformat().replace("+00:00", "Z")
+
+        # 4) 응답 포맷 (네 명세: expired_at 사용)
+        body = {
+            "grant_type": "Bearer",
+            "access": {
+                "token": access_str,
+                "expired_at": access_exp,
+            },
+            "refresh": {
+                "token": new_refresh_str,
+                "expired_at": refresh_exp,
+            },
+        }
+        return Response(body, status=status.HTTP_200_OK)
 
