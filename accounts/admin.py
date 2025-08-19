@@ -4,7 +4,6 @@ from .models import User, PushSubscription, Proposer, ProposerLevel, LocationHis
 from .forms import CustomUserChangeForm, CustomAdminUserCreationForm
 
 class CustomUserAdmin(UserAdmin):
-
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Personal info", {
@@ -15,7 +14,6 @@ class CustomUserAdmin(UserAdmin):
         }),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
-
     add_fieldsets = (
         (None, {
             "classes": (

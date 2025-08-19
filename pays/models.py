@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.core.validators import MinLengthValidator
 from django.db import models
-
 from utils.choices import (
     PaymentTypeChoices,
     PaymentMethodChoices,
@@ -17,7 +16,6 @@ class Payment(models.Model):
     - 결제/정산 관련 원본 값은 가급적 JSON 필드에 그대로 저장(포렌식/CS 대응)
     - 취소는 OneToOne Cancel로 연결(정책상 전액취소만 쓰더라도 스키마는 일반형 유지)
     """
-
     payment_key = models.CharField(
         max_length=200,
         unique=True,
@@ -32,7 +30,6 @@ class Payment(models.Model):
         on_delete=models.CASCADE,
         related_name='payment',
     )
-
     version = models.CharField(
         max_length=10,
         default="2022-11-16",
@@ -57,7 +54,6 @@ class Payment(models.Model):
         max_length=10,
         default="KRW",
     )
-
     method = models.CharField(
         max_length=20,
         choices=PaymentMethodChoices.choices,
@@ -173,7 +169,6 @@ class Payment(models.Model):
             "amount": cr.amount,
             "taxFreeAmount": cr.tax_free_amount,
         }
-    
     discount = models.JSONField(
         null=True,
         blank=True,
@@ -205,7 +200,6 @@ class Payment(models.Model):
     def __str__(self):
         return f"{self.order_id} / {self.status}"
 
-
 class Cancel(models.Model):
     """
     결제 취소(전액/부분 지원 형태 스키마) — 서비스 정책상 전액만 사용하더라도 구조는 유지
@@ -215,7 +209,6 @@ class Cancel(models.Model):
         on_delete=models.PROTECT,
         related_name='cancel',
     )
-
     cancel_amount = models.PositiveIntegerField()
     cancel_reason = models.CharField(
         max_length=200,
@@ -226,7 +219,6 @@ class Cancel(models.Model):
     card_discount_amount = models.PositiveIntegerField()
     transfer_discount_amount = models.PositiveIntegerField()
     easy_pay_discount_amount = models.PositiveIntegerField()
-
     canceled_at = models.DateTimeField()
     transaction_key = models.CharField(
         max_length=64,
@@ -246,7 +238,6 @@ class Cancel(models.Model):
     def __str__(self):
         return f"Cancel {self.payment.order_id} ({self.cancel_amount})"
 
-
 class CashReceipt(models.Model):
     """
     현금영수증 이력 (발급/취소 모두 커버)
@@ -260,7 +251,6 @@ class CashReceipt(models.Model):
         on_delete=models.CASCADE,
         related_name='cash_receipts',
     )
-
     type = models.CharField(
         max_length=4,
         choices=CashReceiptTypeChoices.choices,
@@ -276,10 +266,8 @@ class CashReceipt(models.Model):
         max_length=7,
         choices=CashReceiptTransactionTypeChoices.choices,
     )
-
     amount = models.PositiveIntegerField()
     tax_free_amount = models.PositiveIntegerField()
-
     issue_status = models.CharField(
         max_length=11,
         choices=CashReceiptIssueStatusChoices.choices,
@@ -291,4 +279,3 @@ class CashReceipt(models.Model):
 
     def __str__(self):
         return f"CashReceipt {self.receipt_key} / {self.issue_status}"
-
