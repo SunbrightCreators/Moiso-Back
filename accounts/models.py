@@ -89,10 +89,7 @@ class PushSubscription(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=[
-                    'user', 
-                    'endpoint'
-                ],
+                fields=['user','endpoint'],
                 name='unique_user_endpoint',
             )
        ]
@@ -159,10 +156,7 @@ class LocationHistory(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=[
-                    'user', 
-                    'created_at'
-                    ],
+                fields=['user','created_at'],
                 name='unique_user_created_at',
             )
        ]
