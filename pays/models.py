@@ -17,7 +17,7 @@ class Payment(models.Model):
     """
     payment_key = models.CharField(
         max_length=200,
-        unique=True,
+        primary_key=True,
     )
     funding = models.ForeignKey(
        "fundings.Funding",
