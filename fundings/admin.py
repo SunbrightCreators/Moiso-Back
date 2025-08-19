@@ -3,3 +3,7 @@ from .models import Funding, Reward, ProposerReward, ProposerLikeFunding, Propos
 
 admin.site.register(Funding)
 admin.site.register(Reward)
+admin.site.register(ProposerReward)
+admin.site.register(ProposerLikeFunding)
+admin.site.register(ProposerScrapFunding)
+admin.site.register(FounderScrapFunding)
