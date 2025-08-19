@@ -88,7 +88,7 @@ class Funding(models.Model):
         validators=[
             RegexValidator(
                 regex=r"^\d{4}-(0[1-9]|1[0-2])$",
-                message="YYYY-MM 형식으로 입력하세요!",
+                message="YYYY-MM 형식으로 입력하세요.",
             )
         ],
     )
