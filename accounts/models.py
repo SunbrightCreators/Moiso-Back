@@ -123,7 +123,7 @@ class ProposerLevel(models.Model):
     )
     address = models.JSONField(
         default=dict,
-    ) 
+    )
     level = models.PositiveSmallIntegerField(
         validators=[
             MinValueValidator(1),
@@ -153,7 +153,7 @@ class LocationHistory(models.Model):
                     'created_at'
                     ],
                 name='unique_user_created_at',
-            )   
+            )
        ]
 
 class Founder(models.Model):
@@ -179,8 +179,8 @@ class Founder(models.Model):
     address = ArrayField(
         base_field=models.JSONField(
             default=dict,
-        ),  
-        size=2,          
+        ),
+        size=2,
     )
     target = ArrayField(
         base_field=models.CharField(
