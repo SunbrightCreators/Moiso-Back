@@ -17,13 +17,11 @@ class Funding(models.Model):
         on_delete=models.CASCADE,
         related_name="funding",
     )
-    '''
     proposal = models.OneToOneField(
         "proposals.Proposal",
         on_delete=models.PROTECT,
         related_name="funding",
     )
-    '''
     title = models.CharField(
         max_length=50,
     )
