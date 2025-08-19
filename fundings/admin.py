@@ -3,5 +3,3 @@ from .models import Funding, Reward, ProposerReward, ProposerLikeFunding, Propos
 
 admin.site.register(Funding)
 admin.site.register(Reward)
-admin.site.register(FundingImage)
-admin.site.register(FundingVideo)
