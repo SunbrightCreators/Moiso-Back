@@ -94,6 +94,9 @@ class PushSubscription(models.Model):
             )
        ]
 
+    def __str__(self):
+        return f'{self.user.email}의 {self.endpoint}'
+
 class Proposer(models.Model):
     id = NANOIDField(
         primary_key=True,
@@ -115,6 +118,9 @@ class Proposer(models.Model):
         size=3,
     )
 
+    def __str__(self):
+        return self.user.email
+
 class ProposerLevel(models.Model):
     user = models.ForeignKey(
         "Proposer",
@@ -130,6 +136,9 @@ class ProposerLevel(models.Model):
             MaxValueValidator(3),
         ],
     )
+
+    def __str__(self):
+        return self.user.user.email
 
 class LocationHistory(models.Model):
     user = models.ForeignKey(
@@ -158,6 +167,9 @@ class LocationHistory(models.Model):
                 name='unique_user_created_at',
             )
        ]
+
+    def __str__(self):
+        return self.user.user.email
 
 class Founder(models.Model):
     id = NANOIDField(
@@ -201,3 +213,6 @@ class Founder(models.Model):
         }
         '''
     )
+
+    def __str__(self):
+        return self.user.user.email
