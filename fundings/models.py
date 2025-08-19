@@ -164,10 +164,10 @@ class Reward(models.Model):
 class ProposerReward(models.Model):
     id = NANOIDField(
         primary_key=True,
-        size=21,
         editable=False,
         secure_generated=True,
         alphabetically=ascii_lowercase + digits,
+        size=21,
     )
     user = models.ForeignKey(
         "accounts.Proposer",

@@ -97,10 +97,10 @@ class PushSubscription(models.Model):
 class Proposer(models.Model):
     id = NANOIDField(
         primary_key=True,
-        size=21,  
         editable=False,
         secure_generated=True,
         alphabetically=ascii_lowercase + digits,
+        size=21,
     )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -164,10 +164,10 @@ class LocationHistory(models.Model):
 class Founder(models.Model):
     id = NANOIDField(
         primary_key=True,
-        size=21,  
         editable=False,
         secure_generated=True,
         alphabetically=ascii_lowercase + digits,
+        size=21,
     )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
