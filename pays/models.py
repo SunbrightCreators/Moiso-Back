@@ -20,7 +20,7 @@ class Payment(models.Model):
 
     payment_key = models.CharField(
         max_length=200,
-        primary_key=True,
+        unique=True,
     )
     funding = models.ForeignKey(
        "fundings.Funding",
@@ -166,7 +166,7 @@ class Payment(models.Model):
         if not cr:
             return None
         return {
-            "type": cr.get_type_display(),
+            "type": cr.type,
             "receiptKey": cr.receipt_key,
             "issueNumber": cr.issue_number,
             "receiptUrl": cr.receipt_url,
@@ -203,7 +203,7 @@ class Payment(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.order_id} / {self.get_status_display()}"
+        return f"{self.order_id} / {self.status}"
 
 
 class Cancel(models.Model):
@@ -290,5 +290,5 @@ class CashReceipt(models.Model):
     requested_at = models.DateTimeField()
 
     def __str__(self):
-        return f"CashReceipt {self.receipt_key} / {self.get_issue_status_display()}"
+        return f"CashReceipt {self.receipt_key} / {self.issue_status}"
 
