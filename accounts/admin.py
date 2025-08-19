@@ -41,8 +41,8 @@ class CustomUserAdmin(UserAdmin):
     ordering = ("email",)
 
 admin.site.register(User, CustomUserAdmin)
-admin.site.register(Proposer)
-admin.site.register(Founder)
-admin.site.register(LocationHistory)
-admin.site.register(ProposerLevel)
 admin.site.register(PushSubscription)
+admin.site.register(Proposer)
+admin.site.register(ProposerLevel)
+admin.site.register(LocationHistory)
+admin.site.register(Founder)
