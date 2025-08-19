@@ -199,7 +199,7 @@ class FounderScrapFunding(models.Model):
         related_name="founder_scrap_funding",
     )
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
     class Meta:
@@ -225,7 +225,7 @@ class ProposerLikeFunding(models.Model):
         related_name="proposer_like_funding",
     )
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
     class Meta:
@@ -251,7 +251,7 @@ class ProposerScrapFunding(models.Model):
         related_name="proposer_scrap_funding",
     )
     created_at = models.DateTimeField(
-        auto_now_add=True
+        auto_now_add=True,
     )
 
     class Meta:
