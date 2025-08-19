@@ -200,44 +200,6 @@ class Payment(models.Model):
             "taxFreeAmount": cr.tax_free_amount,
         }
 
-class Cancel(models.Model):
-    """
-    결제 취소(전액/부분 지원 형태 스키마) — 서비스 정책상 전액만 사용하더라도 구조는 유지
-    """
-    payment = models.OneToOneField(
-        Payment,
-        on_delete=models.PROTECT,
-        related_name='cancel',
-    )
-    cancel_amount = models.PositiveIntegerField()
-    cancel_reason = models.CharField(
-        max_length=200,
-    )
-    tax_free_amount = models.PositiveIntegerField()
-    tax_exemption_amount = models.PositiveIntegerField()
-    refundable_amount = models.PositiveIntegerField()
-    card_discount_amount = models.PositiveIntegerField()
-    transfer_discount_amount = models.PositiveIntegerField()
-    easy_pay_discount_amount = models.PositiveIntegerField()
-    canceled_at = models.DateTimeField()
-    transaction_key = models.CharField(
-        max_length=64,
-    )
-    receipt_key = models.CharField(
-        max_length=200,
-        null=True,
-        blank=True,
-    )
-    cancel_status = models.TextField()
-    cancel_request_id = models.CharField(
-        max_length=64,
-        null=True,
-        blank=True,
-    )
-
-    def __str__(self):
-        return f"Cancel {self.payment.order_id} ({self.cancel_amount})"
-
 class CashReceipt(models.Model):
     """
     현금영수증 이력 (발급/취소 모두 커버)
@@ -279,3 +241,41 @@ class CashReceipt(models.Model):
 
     def __str__(self):
         return f"CashReceipt {self.receipt_key} / {self.issue_status}"
+
+class Cancel(models.Model):
+    """
+    결제 취소(전액/부분 지원 형태 스키마) — 서비스 정책상 전액만 사용하더라도 구조는 유지
+    """
+    payment = models.OneToOneField(
+        Payment,
+        on_delete=models.PROTECT,
+        related_name='cancel',
+    )
+    cancel_amount = models.PositiveIntegerField()
+    cancel_reason = models.CharField(
+        max_length=200,
+    )
+    tax_free_amount = models.PositiveIntegerField()
+    tax_exemption_amount = models.PositiveIntegerField()
+    refundable_amount = models.PositiveIntegerField()
+    card_discount_amount = models.PositiveIntegerField()
+    transfer_discount_amount = models.PositiveIntegerField()
+    easy_pay_discount_amount = models.PositiveIntegerField()
+    canceled_at = models.DateTimeField()
+    transaction_key = models.CharField(
+        max_length=64,
+    )
+    receipt_key = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+    )
+    cancel_status = models.TextField()
+    cancel_request_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+    )
+
+    def __str__(self):
+        return f"Cancel {self.payment.order_id} ({self.cancel_amount})"

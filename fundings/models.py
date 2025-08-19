@@ -184,32 +184,6 @@ class ProposerReward(models.Model):
     def __str__(self):
         return f"{self.user.user.email}의 {self.reward.title}"
 
-class FounderScrapFunding(models.Model):
-    user = models.ForeignKey(
-        "accounts.Founder",
-        on_delete=models.CASCADE,
-        related_name="founder_scrap_funding",
-    )
-    funding = models.ForeignKey(
-        "Funding",
-        on_delete=models.CASCADE,
-        related_name="founder_scrap_funding",
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "funding"],
-                name="unique_founder_scrap_funding",
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.user.user.email} 님이 {self.funding.title} 펀딩을 스크랩했어요."
-
 class ProposerLikeFunding(models.Model):
     user = models.ForeignKey(
         "accounts.Proposer",
@@ -261,3 +235,29 @@ class ProposerScrapFunding(models.Model):
 
     def __str__(self):
         return f'{self.user.user.email} 님이 {self.funding.title} 펀딩을 스크랩했어요.'
+
+class FounderScrapFunding(models.Model):
+    user = models.ForeignKey(
+        "accounts.Founder",
+        on_delete=models.CASCADE,
+        related_name="founder_scrap_funding",
+    )
+    funding = models.ForeignKey(
+        "Funding",
+        on_delete=models.CASCADE,
+        related_name="founder_scrap_funding",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "funding"],
+                name="unique_founder_scrap_funding",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.user.email} 님이 {self.funding.title} 펀딩을 스크랩했어요."
