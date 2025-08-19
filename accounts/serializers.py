@@ -43,7 +43,7 @@ class UserLoginSerializer(serializers.Serializer):
 
         user = authenticate(
             request=self.context.get("request"),
-            username=email,  # Django 기본 backend는 username 파라미터 사용
+            username=email,  
             password=password,
         )
 
