@@ -55,9 +55,7 @@ class GeocodingService:
         Args:
             address (str): 주소
         Returns:
-            position (PositionType):
-                - latitude (int): 위도
-                - longitude (int): 경도
+            position (PositionType): 좌표
         '''
         response = self.get_geocoding(
             query=address,
@@ -80,15 +78,7 @@ class GeocodingService:
         Args:
             address (str): 주소
         Returns:
-            result (list[dict]):
-                - id (int): 인덱스 번호
-                - address (AddressType.LegalType):
-                    - sido (str): 시도
-                    - sigungu (str): 시군구
-                    - eupmyundong (str): 읍면동
-                - position (PositionType):
-                    - latitude (int): 위도
-                    - longitude (int): 경도
+            result (list[dict]): 딕셔너리(인덱스 번호, 법정동 주소, 좌표)의 배열
         '''
         response = self.get_geocoding(
             query=address,
@@ -163,14 +153,9 @@ class ReverseGeocodingService:
         '''
         좌표(위도,경도)를 법정동 주소로 변환합니다.
         Args:
-            position (PositionType):
-                - latitude (int): 위도
-                - longitude (int): 경도
+            position (PositionType): 좌표
         Returns:
-            address (AddressType.LegalType):
-                - sido (str|None): 시도
-                - sigungu (str|None): 시군구
-                - eupmyundong (str|None): 읍면동
+            address (AddressType.LegalType): 법정동 주소
         '''
         response = self.get_reverse_geocoding(
             coords=f'{position['latitude']},{position['longitude']}',
@@ -192,16 +177,9 @@ class ReverseGeocodingService:
         '''
         좌표(위도,경도)를 전체 주소로 변환합니다.
         Args:
-            position (PositionType):
-                - latitude (int): 위도
-                - longitude (int): 경도
+            position (PositionType): 좌표
         Returns:
-            address (AddressType.FullType):
-                - sido (str|None): 시도
-                - sigungu (str|None): 시군구
-                - eupmyundong (str|None): 읍면동
-                - jibun_detail (str|None): 지번 주소 상세
-                - road_detail (str|None): 도로명 주소 상세
+            address (AddressType.FullType): 전체 주소
         '''
         response = self.get_reverse_geocoding(
             coords=f'{position['latitude']},{position['longitude']}',
