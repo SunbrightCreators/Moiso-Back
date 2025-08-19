@@ -30,8 +30,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'accounts.apps.AccountsConfig',
     'proposals.apps.ProposalsConfig',
-    'pays.apps.PaysConfig',
     'fundings.apps.FundingsConfig',
+    'pays.apps.PaysConfig',
     'notifications.apps.NotificationsConfig',
 ]
 
