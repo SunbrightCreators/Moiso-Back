@@ -20,16 +20,16 @@ class Payment(models.Model):
 
     payment_key = models.CharField(
         max_length=200,
-        unique=True,
+        primary_key=True,
     )
     funding = models.ForeignKey(
-       "Funding",
+       "fundings.Funding",
        on_delete=models.PROTECT,
        related_name='payment',
     )
     user = models.ForeignKey(
-         "accounts.Proposer",
-        on_delete=models.PROTECT,
+        "accounts.Proposer",
+        on_delete=models.CASCADE,
         related_name='payment',
     )
 
@@ -61,9 +61,12 @@ class Payment(models.Model):
     method = models.CharField(
         max_length=20,
         choices=PaymentMethodChoices.choices,
+        null=True,
         blank=True,
     )
-    total_amount = models.PositiveIntegerField()
+    total_amount = models.PositiveIntegerField(
+        editable=False,
+    )
     balance_amount = models.PositiveIntegerField()
     status = models.CharField(
         max_length=32,
@@ -94,10 +97,12 @@ class Payment(models.Model):
     card = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     virtual_account = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     secret = models.CharField(
         max_length=50,
@@ -107,33 +112,40 @@ class Payment(models.Model):
     mobile_phone = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     gift_certificate = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     transfer = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
 
     # 부가 데이터(원문/추적)
     metadata = models.JSONField(
         null=True,
         blank=True,
-        help_text="결제 요청 시 추가할 수 있는 metadata (최대 5개, key 최대 40자, value 최대 500자)"
+        help_text="결제 요청 시 추가할 수 있는 metadata (최대 5개, key 최대 40자, value 최대 500자)",
+        default=dict,
     )
     receipt = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     checkout = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     easy_pay = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     country = models.CharField(
         max_length=2,
@@ -143,6 +155,7 @@ class Payment(models.Model):
     failure = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
     @property
     def cash_receipt(self):
@@ -164,6 +177,7 @@ class Payment(models.Model):
     discount = models.JSONField(
         null=True,
         blank=True,
+        default=dict,
     )
 
     # 리포팅 편의 필드(선택)
@@ -244,7 +258,7 @@ class CashReceipt(models.Model):
     payment = models.ForeignKey(
         Payment,
         on_delete=models.CASCADE,
-        related_name='cash_receipt',
+        related_name='cash_receipts',
     )
 
     type = models.CharField(
