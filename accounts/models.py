@@ -7,8 +7,8 @@ from django.db import models
 from django_nanoid.models import NANOIDField
 from django.contrib.postgres.fields import ArrayField
 
+from utils.choices import SexChoices, IndustryChoices, FounderTargetChoices
 from .managers import UserManager
-from utils.choices import *
 
 class User(AbstractUser):
     # AbstractUser 모델 오버라이딩
