@@ -129,7 +129,7 @@ class Funding(models.Model):
     )
 
     def __str__(self):
-        return f"[{self.id}] {self.title}"
+        return self.title
 
 class Reward(models.Model):
     # 리워드는 펀딩과 분리 생성될 수 있다고 가정(레벨 리워드) → nullable 허용
@@ -159,7 +159,7 @@ class Reward(models.Model):
     )
 
     def __str__(self):
-        return f"[{self.id}] {self.title}"
+        return f"[{self.funding.title}] {self.title}"
 
 class ProposerReward(models.Model):
     id = NANOIDField(
@@ -185,7 +185,7 @@ class ProposerReward(models.Model):
     )
 
     def __str__(self):
-        return f"ProposerReward(proposer={self.user.id}, reward={self.reward.id})"
+        return f"{self.user.user.email}의 {self.reward.title}"
 
 class FounderScrapFunding(models.Model):
     user = models.ForeignKey(
@@ -211,7 +211,7 @@ class FounderScrapFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"FounderScrapFunding(founder={self.user.id}, funding={self.funding.id})"
+        return f"{self.user.user.email} 님이 {self.funding.title} 펀딩을 스크랩했어요."
 
 class ProposerLikeFunding(models.Model):
     user = models.ForeignKey(
@@ -237,7 +237,7 @@ class ProposerLikeFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"ProposerLikeFunding(proposer={self.user.id}, funding={self.funding.id})"
+        return f'{self.user.user.email} 님이 {self.funding.title} 펀딩을 좋아해요.'
 
 class ProposerScrapFunding(models.Model):
     user = models.ForeignKey(
@@ -263,4 +263,4 @@ class ProposerScrapFunding(models.Model):
         ]
 
     def __str__(self):
-        return f"ProposerScrapFunding(proposer={self.user.id}, funding={self.funding.id})"
+        return f'{self.user.user.email} 님이 {self.funding.title} 펀딩을 스크랩했어요.'
