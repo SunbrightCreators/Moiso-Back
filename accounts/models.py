@@ -31,18 +31,22 @@ class User(AbstractUser):
         size=21,
     )
     is_marketing_allowed = models.BooleanField(
-        default=False
-    )  # 마케팅 및 메시지 수신 동의
+        default=False,
+        help_text='마케팅 및 메시지 수신 동의',
+    )
     name = models.CharField(
         max_length=10,
-    )  # 이름(실명)
+        help_text='이름(실명)',
+    )
     birth = models.CharField(
         max_length=6,
-    )  # 생년월일 (YYMMDD 등 고정 6자리 표기)
+        help_text='생년월일 (YYMMDD 고정 6자리 표기)',
+    )
     sex = models.CharField(
         max_length=5,
         choices=SexChoices.choices,
-    )  # 성별
+        help_text='성별',
+    )
     profile_image = models.ImageField(
         upload_to='user/profile_image',
         null=True,
@@ -143,7 +147,14 @@ class LocationHistory(models.Model):
     )
     address = models.JSONField(
         default=dict,
-    )  # { sido, sigungu, eupmyundong }
+        help_text='''
+        {
+            "sido": "전라남도",
+            "sigungu": "광양시",
+            "eupmyundong": "광양읍"
+        }
+        '''
+    )
 
     class Meta:
         constraints = [
@@ -191,4 +202,10 @@ class Founder(models.Model):
     )
     business_hours = models.JSONField(
         default=dict,
-    )  # { start, end }
+        help_text='''
+        {
+            "start": "09:00",
+            "end": "18:00",
+        }
+        '''
+    )

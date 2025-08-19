@@ -39,7 +39,13 @@ class Funding(models.Model):
     )
     business_hours = models.JSONField(
         default=dict,
-    ) # {  "start": "시작시간",  "end": "종료시간"}
+        help_text='''
+        {
+            "start": "09:00",
+            "end": "18:00",
+        }
+        '''
+    )
     radius = models.PositiveSmallIntegerField(
         choices=RadiusChoices.choices,
     )
@@ -65,8 +71,14 @@ class Funding(models.Model):
         max_length=50,
     )
     goal_amount = models.PositiveBigIntegerField()
-    schedule = models.JSONField( # {  "start": "시작일",  "end": "종료일"}
+    schedule = models.JSONField(
         default=dict,
+        help_text='''
+        {
+            "start": "2025-07-21",
+            "end": "2025-08-24",
+        }
+        '''
     )
     schedule_description = models.CharField(
        max_length=1000,
