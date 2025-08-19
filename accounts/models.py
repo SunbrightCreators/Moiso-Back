@@ -116,7 +116,6 @@ class Proposer(models.Model):
     )
 
 class ProposerLevel(models.Model):
-
     user = models.ForeignKey(
         "Proposer",
         on_delete=models.CASCADE,
@@ -133,7 +132,6 @@ class ProposerLevel(models.Model):
     )
 
 class LocationHistory(models.Model):
-
     user = models.ForeignKey(
         "Proposer",
         on_delete=models.CASCADE,
