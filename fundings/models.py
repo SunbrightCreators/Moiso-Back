@@ -130,7 +130,6 @@ class Funding(models.Model):
         return self.title
 
 class Reward(models.Model):
-    # 리워드는 펀딩과 분리 생성될 수 있다고 가정(레벨 리워드) → nullable 허용
     funding = models.ForeignKey(
         'Funding',
         on_delete=models.CASCADE,
