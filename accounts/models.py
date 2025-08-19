@@ -1,14 +1,12 @@
 from string import ascii_lowercase, digits
-
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django_nanoid.models import NANOIDField
 from django.contrib.postgres.fields import ArrayField
-
+from utils.choices import SexChoices, IndustryChoices, FounderTargetChoices
 from .managers import UserManager
-from utils.choices import *
 
 class User(AbstractUser):
     # AbstractUser 모델 오버라이딩
@@ -32,23 +30,23 @@ class User(AbstractUser):
         alphabetically=ascii_lowercase + digits,
         size=21,
     )
-
     is_marketing_allowed = models.BooleanField(
-        default=False
-    )  # 마케팅 및 메시지 수신 동의
+        default=False,
+        help_text='마케팅 및 메시지 수신 동의',
+    )
     name = models.CharField(
         max_length=10,
-    )  # 이름(실명)
-
+        help_text='이름(실명)',
+    )
     birth = models.CharField(
         max_length=6,
-    )  # 생년월일 (YYMMDD 등 고정 6자리 표기)
-
+        help_text='생년월일 (YYMMDD 고정 6자리 표기)',
+    )
     sex = models.CharField(
         max_length=5,
         choices=SexChoices.choices,
-    )  # 성별
-
+        help_text='성별',
+    )
     profile_image = models.ImageField(
         upload_to='user/profile_image',
         null=True,
@@ -59,39 +57,30 @@ class User(AbstractUser):
         return self.email
 
 class PushSubscription(models.Model):
-
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="push_subscription"
     )
-
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
-
     updated_at = models.DateTimeField(
         auto_now=True,
     )
-
     endpoint = models.URLField(
         max_length=500,
     )
-
     p256dh_key = models.CharField(
         max_length=100,
     )
-
     auth_key = models.CharField(
         max_length=50,
     )
-
     is_main = models.BooleanField()
-
     is_active = models.BooleanField(
         default=True,
     )
-
     last_success = models.DateTimeField(
         null=True,
         blank=True,
@@ -100,30 +89,27 @@ class PushSubscription(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=[
-                    'user', 
-                    'endpoint'
-                ],
+                fields=['user','endpoint'],
                 name='unique_user_endpoint',
             )
        ]
 
+    def __str__(self):
+        return f'{self.user.email}의 {self.endpoint}'
 
 class Proposer(models.Model):
     id = NANOIDField(
         primary_key=True,
-        size=21,  
         editable=False,
         secure_generated=True,
         alphabetically=ascii_lowercase + digits,
+        size=21,
     )
-
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='proposer',
     )
-
     industry = ArrayField(
         base_field=models.CharField(
             max_length=24,
@@ -132,18 +118,18 @@ class Proposer(models.Model):
         size=3,
     )
 
-class ProposerLevel(models.Model):
+    def __str__(self):
+        return self.user.email
 
+class ProposerLevel(models.Model):
     user = models.ForeignKey(
         "Proposer",
         on_delete=models.CASCADE,
         related_name="proposer_level",
     )
-
     address = models.JSONField(
         default=dict,
-    ) 
-
+    )
     level = models.PositiveSmallIntegerField(
         validators=[
             MinValueValidator(1),
@@ -151,49 +137,53 @@ class ProposerLevel(models.Model):
         ],
     )
 
-class LocationHistory(models.Model):
+    def __str__(self):
+        return self.user.user.email
 
+class LocationHistory(models.Model):
     user = models.ForeignKey(
         "Proposer",
         on_delete=models.CASCADE,
         related_name="location_history",
     )
-
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
-
     address = models.JSONField(
         default=dict,
-    )  # { sido, sigungu, eupmyundong }
+        help_text='''
+        {
+            "sido": "전라남도",
+            "sigungu": "광양시",
+            "eupmyundong": "광양읍"
+        }
+        '''
+    )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=[
-                    'user', 
-                    'created_at'
-                    ],
+                fields=['user','created_at'],
                 name='unique_user_created_at',
-            )   
+            )
        ]
 
+    def __str__(self):
+        return self.user.user.email
 
 class Founder(models.Model):
     id = NANOIDField(
         primary_key=True,
-        size=21,  
         editable=False,
         secure_generated=True,
         alphabetically=ascii_lowercase + digits,
+        size=21,
     )
-
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="founder",
     )
-
     industry = ArrayField(
         base_field=models.CharField(
             max_length=24,
@@ -204,10 +194,9 @@ class Founder(models.Model):
     address = ArrayField(
         base_field=models.JSONField(
             default=dict,
-        ),  
-        size=2,          
+        ),
+        size=2,
     )
-
     target = ArrayField(
         base_field=models.CharField(
             max_length=8,
@@ -217,4 +206,13 @@ class Founder(models.Model):
     )
     business_hours = models.JSONField(
         default=dict,
-    )  # { start, end }
+        help_text='''
+        {
+            "start": "09:00",
+            "end": "18:00",
+        }
+        '''
+    )
+
+    def __str__(self):
+        return self.user.user.email

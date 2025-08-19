@@ -1,10 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import *
+from .models import User, PushSubscription, Proposer, ProposerLevel, LocationHistory, Founder
 from .forms import CustomUserChangeForm, CustomAdminUserCreationForm
 
 class CustomUserAdmin(UserAdmin):
-
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Personal info", {
@@ -15,7 +14,6 @@ class CustomUserAdmin(UserAdmin):
         }),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
-
     add_fieldsets = (
         (None, {
             "classes": (
@@ -41,8 +39,8 @@ class CustomUserAdmin(UserAdmin):
     ordering = ("email",)
 
 admin.site.register(User, CustomUserAdmin)
-admin.site.register(Proposer)
-admin.site.register(Founder)
-admin.site.register(LocationHistory)
-admin.site.register(ProposerLevel)
 admin.site.register(PushSubscription)
+admin.site.register(Proposer)
+admin.site.register(ProposerLevel)
+admin.site.register(LocationHistory)
+admin.site.register(Founder)

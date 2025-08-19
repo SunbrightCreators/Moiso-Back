@@ -1,7 +1,9 @@
 from django.contrib import admin
-from .models import *
+from .models import Funding, Reward, ProposerReward, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding
 
 admin.site.register(Funding)
 admin.site.register(Reward)
-admin.site.register(FundingImage)
-admin.site.register(FundingVideo)
+admin.site.register(ProposerReward)
+admin.site.register(ProposerLikeFunding)
+admin.site.register(ProposerScrapFunding)
+admin.site.register(FounderScrapFunding)
