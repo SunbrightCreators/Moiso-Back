@@ -98,8 +98,8 @@ class GeocodingService:
                     'eupmyundong': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'DONGMYUN'), {}).get('longName'),
                 },
                 'position': {
-                    'latitude': address.get('x'),
-                    'longitude': address.get('y'),
+                    'latitude': float(address.get('x')),
+                    'longitude': float(address.get('y')),
                 }
             })
 
@@ -162,8 +162,8 @@ class GeocodingService:
                     'road_detail': road_detail,
                 },
                 'position': {
-                    'latitude': address.get('x'),
-                    'longitude': address.get('y'),
+                    'latitude': float(address.get('x')),
+                    'longitude': float(address.get('y')),
                 }
             })
 
