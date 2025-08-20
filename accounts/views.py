@@ -37,16 +37,35 @@ def _labels_from_choices(choices_cls, codes):
         return [mapping.get(code, str(code)) for code in codes]
     return mapping.get(codes, str(codes))
 
+def _user_base_payload(request, user):
+    """기본 사용자 정보 JSON (라벨 변환 + 프로필 이미지 절대 URL)"""
+    img_url = None
 
-def _user_base_payload(user):
-    """기본 사용자 정보 JSON (라벨 변환)"""
+    # ImageField(FileField) 우선
+    file_field = getattr(user, "profile_image", None)
+    if file_field:
+        try:
+            rel_url = file_field.url  # 예: /media/...
+        except Exception:
+            rel_url = None
+        if rel_url:
+            img_url = request.build_absolute_uri(rel_url) if request else rel_url
+
+    # (옵션) URLField를 쓰는 프로젝트 대비
+    if not img_url:
+        url_field = getattr(user, "profile_image_url", None)
+        if url_field:
+            img_url = url_field
+
     return {
         "email": user.email,
         "name": user.name,
         "birth": user.birth,
-        "sex": _labels_from_choices(SexChoices, user.sex),
+        "sex": _labels_from_choices(SexChoices, user.sex), 
+        "profile_image": img_url,                         
         "is_marketing_allowed": user.is_marketing_allowed,
     }
+
 
 
 # ── Views ──────────────────────────────────────────────────────────────────
@@ -278,7 +297,7 @@ class AccountsProfileRoot(APIView):
         fields = set(request.query_params.getlist("field"))
         fields_given = len(fields) > 0
 
-        base_payload = _user_base_payload(user)
+        base_payload = _user_base_payload(request, user)
         base_allow = {"email", "name", "birth", "sex", "profile_image", "is_marketing_allowed"}
         result = {}
 
