@@ -33,6 +33,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'accounts.apps.AccountsConfig',
     'maps.apps.MapsConfig',
+    'proposals.apps.ProposalsConfig',
+    'fundings.apps.FundingsConfig',
+    'pays.apps.PaysConfig',
+    'notifications.apps.NotificationsConfig',
 ]
 
 MIDDLEWARE = [
