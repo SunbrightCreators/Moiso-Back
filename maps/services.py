@@ -247,11 +247,12 @@ class ReverseGeocodingService:
             'eupmyundong': eupmyundong,
         }
 
-    def get_position_to_full(self, query_position:PositionType) -> AddressType.FullType:
+    def get_position_to_full(self, query_position:PositionType, filter_address:str|None=None) -> AddressType.FullType:
         '''
         좌표(위도,경도)를 전체 주소로 변환합니다.
         Args:
             query_position (PositionType): 좌표
+            filter_address (str|None): 법정동 주소. 해당 법정동 내의 주소만 포함합니다.
         Returns:
             address (AddressType.FullType): 전체 주소
         '''
@@ -264,6 +265,13 @@ class ReverseGeocodingService:
             raise NotFound('주소를 찾을 수 없어요.')
         
         legalcode = next((item for item in response['results'] if item['name'] == 'legalcode'), None)
+        sido = legalcode.get('region', {}).get('area1', {}).get('name') or None
+        sigungu = legalcode.get('region', {}).get('area2', {}).get('name') or None
+        eupmyundong = legalcode.get('region', {}).get('area3', {}).get('name') or None
+
+        if filter_address:
+            if not filter_address == ' '.join([sido, sigungu, eupmyundong]):
+                raise NotFound('핀을 우리 동네로 옮겨 주세요.')
 
         addr = next((item for item in response['results'] if item['name'] == 'addr'), None)
         if addr:
@@ -290,9 +298,9 @@ class ReverseGeocodingService:
             road_detail = None
 
         return {
-            'sido': legalcode.get('region', {}).get('area1', {}).get('name') or None,
-            'sigungu': legalcode.get('region', {}).get('area2', {}).get('name') or None,
-            'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
+            'sido': sido,
+            'sigungu': sigungu,
+            'eupmyundong': eupmyundong,
             'jibun_detail': jibun_detail,
             'road_detail': road_detail,
         }
