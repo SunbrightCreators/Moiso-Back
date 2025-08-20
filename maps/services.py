@@ -105,6 +105,70 @@ class GeocodingService:
 
         return result
 
+    def get_address_to_full(self, query_address:str, filter_address:str|None=None, filter_type:Literal['road']|None=None) -> list[dict]:
+        '''
+        일부 주소로 전체 주소와 좌표를 검색합니다.
+        Args:
+            query_address (str): 검색어
+            filter_address (str|None): 법정동 주소. 해당 법정동 내의 주소만 포함합니다.
+            filter_type (Literal['road']|None):
+                - `None`: 필터하지 않음 (기본값)
+                - `'road'`: 도로명 주소가 있는 주소만 포함
+        Returns:
+            result (list[dict]): 딕셔너리(인덱스 번호, 전체 주소, 좌표)의 배열
+        '''
+        response = self.get_geocoding(
+            query=query_address,
+        )
+
+        if not response.get('addresses'):
+            raise NotFound('검색 결과가 없어요.')
+
+        result = list()
+
+        for index, address in enumerate(response['addresses'], start=1):
+            road_name = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'ROAD_NAME'), {}).get('longName')
+
+            if filter_type == 'road':
+                if not road_name:
+                    continue
+
+            sido = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIDO'), {}).get('longName')
+            sigungu = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIGUGUN'), {}).get('longName')
+            eupmyundong = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'DONGMYUN'), {}).get('longName')
+ 
+            if filter_address:
+                if not filter_address == ' '.join([sido, sigungu, eupmyundong]):
+                    continue
+
+            ri = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'RI'), {}).get('longName')
+            land_number = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'LAND_NUMBER'), {}).get('longName')
+            building_number = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'BUILDING_NUMBER'), {}).get('longName')
+            building_name = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'BUILDING_NAME'), {}).get('longName')
+
+            jibun_detail = ' '.join(filter(None, [ri, land_number]))
+            road_detail = ' '.join(filter(None, [road_name, building_number, building_name]))
+
+            result.append({
+                'id': index,
+                'address': {
+                    'sido': sido,
+                    'sigungu': sigungu,
+                    'eupmyundong': eupmyundong,
+                    'jibun_detail': jibun_detail,
+                    'road_detail': road_detail,
+                },
+                'position': {
+                    'latitude': address.get('x'),
+                    'longitude': address.get('y'),
+                }
+            })
+
+        if not result:
+            raise NotFound('검색 결과가 없어요.')
+
+        return result
+
 class ReverseGeocodingService:
     def get_reverse_geocoding(
             self,

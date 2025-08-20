@@ -38,6 +38,14 @@ class GeocodingFull(APIView):
         query = request.query_params.get('query')
         filter = request.query_params.get('filter')
 
+        service = GeocodingService()
+        full = service.get_address_to_full(query, filter, 'road')
+
+        return Response(
+            full,
+            status=status.HTTP_200_OK,
+        )
+
 class ReverseGeocodingLegal(APIView):
     @method_decorator(require_query_params('latitude','longitude'))
     def get(self, request:HttpRequest, format=None):
