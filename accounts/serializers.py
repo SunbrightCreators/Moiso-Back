@@ -1,8 +1,8 @@
 from django.contrib.auth import authenticate, get_user_model, password_validation
 from rest_framework import serializers
 
-from .models import User
 from utils.choices import SexChoices, IndustryChoices, FounderTargetChoices
+from .models import Proposer, ProposerLevel, LocationHistory, Founder
 
 User = get_user_model()
 
@@ -23,7 +23,6 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True}
         }
-        extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data:dict):
         password = validated_data.pop('password')
@@ -79,34 +78,61 @@ class BusinessHoursSerializer(serializers.Serializer):
     end = serializers.RegexField(r"^\d{2}:\d{2}$")
 
 
-# ── 프로필 페이로드 ────────────────────────────────────────────────────────
-class ProposerProfileSerializer(serializers.Serializer):
+# ── Proposer: ModelSerializer (주소는 write_only로 받아 부수처리) ───────────
+class ProposerSerializer(serializers.ModelSerializer):
+    # 모델엔 address 필드가 없으므로 최초 레벨/히스토리 기록용으로만 받음
+    address = AddressSerializer(many=True, required=False, write_only=True)
+
+    # industry는 List[Choice] 라고 가정
     industry = serializers.ListField(
-        child=serializers.ChoiceField(choices=IndustryChoices.choices),
-        allow_empty=False,
-        max_length=3,
-        min_length=1,
+        child=serializers.ChoiceField(choices=IndustryChoices.choices)
     )
-    # Proposer 모델에는 address 필드가 없으므로,
-    # 최초 레벨/히스토리 기록용으로만 받음
+
+    class Meta:
+        model = Proposer
+        fields = ("id", "user", "industry", "address")
+        extra_kwargs = {
+            "user": {"read_only": True},  # user는 context로 주입
+        }
+
+    def create(self, validated_data):
+        addr_list = validated_data.pop("address", [])
+        user = self.context["user"]                     # ← 컨텍스트에서 주입
+        proposer = Proposer.objects.create(user=user, **validated_data)
+
+        # 주소가 있으면 최초 레벨/히스토리 기록
+        if addr_list:
+            first_addr = addr_list[0]
+            ProposerLevel.objects.create(user=proposer, level=1, address=first_addr)
+            LocationHistory.objects.create(user=proposer, address=first_addr)
+        return proposer
+
+
+# ── Founder: ModelSerializer ───────────────────────────────────────────────
+class FounderSerializer(serializers.ModelSerializer):
     address = AddressSerializer(many=True, required=False)
-
-
-class FounderProfileSerializer(serializers.Serializer):
     industry = serializers.ListField(
-        child=serializers.ChoiceField(choices=IndustryChoices.choices),
-        allow_empty=False,
-        max_length=3,
-        min_length=1,
+        child=serializers.ChoiceField(choices=IndustryChoices.choices)
     )
-    address = AddressSerializer(many=True, required=False)  # 모델 size=2 제한
     target = serializers.ListField(
-        child=serializers.ChoiceField(choices=FounderTargetChoices.choices),
-        allow_empty=False,
-        max_length=2,
-        min_length=1,
+        child=serializers.ChoiceField(choices=FounderTargetChoices.choices)
     )
     business_hours = BusinessHoursSerializer()
+
+    class Meta:
+        model = Founder
+        fields = ("id", "user", "industry", "address", "target", "business_hours")
+        extra_kwargs = {
+            "user": {"read_only": True},  # user는 context로 주입
+        }
+
+    def validate_address(self, v):
+        # 모델 제한(size=2) 가정 → 최대 2개만 허용
+        return (v or [])[:2]
+
+    def create(self, validated_data):
+        user = self.context["user"]                     # ← 컨텍스트에서 주입
+        return Founder.objects.create(user=user, **validated_data)
 
 
 # ── 사용자 공통 필드 ────────────────────────────────────────────────────────
@@ -129,10 +155,53 @@ class UserBaseSignupSerializer(serializers.Serializer):
         return attrs
 
 
-# ── 모드별 시리얼라이저 ───────────────────────────────────────────────────
+# ── 모드별 회원가입 Serializer (User + 각 ModelSerializer 사용) ────────────
 class UserProposerSignupSerializer(UserBaseSignupSerializer):
-    proposer_profile = ProposerProfileSerializer()
+    # 요청 바디는 기존처럼 proposer_profile을 사용
+    proposer_profile = serializers.DictField()
+
+    def create(self, validated_data):
+        # 1) User 생성 (UserSerializer 사용)
+        proposer_payload = validated_data.pop("proposer_profile", {})
+        user_ser = UserSerializer(data=validated_data, context=self.context)
+        user_ser.is_valid(raise_exception=True)
+        user = user_ser.save()
+
+        # 2) Proposer 생성 (ProposerSerializer 사용)
+        prop_ser = ProposerSerializer(
+            data={
+                "industry": proposer_payload.get("industry"),
+                "address": proposer_payload.get("address", []),
+            },
+            context={**self.context, "user": user},
+        )
+        prop_ser.is_valid(raise_exception=True)
+        prop_ser.save()
+
+        return user
 
 
 class UserFounderSignupSerializer(UserBaseSignupSerializer):
-    founder_profile = FounderProfileSerializer()
+    founder_profile = serializers.DictField()
+
+    def create(self, validated_data):
+        # 1) User 생성
+        founder_payload = validated_data.pop("founder_profile", {})
+        user_ser = UserSerializer(data=validated_data, context=self.context)
+        user_ser.is_valid(raise_exception=True)
+        user = user_ser.save()
+
+        # 2) Founder 생성 (FounderSerializer 사용)
+        founder_ser = FounderSerializer(
+            data={
+                "industry": founder_payload.get("industry"),
+                "address": founder_payload.get("address", []),
+                "target": founder_payload.get("target"),
+                "business_hours": founder_payload.get("business_hours", {}),
+            },
+            context={**self.context, "user": user},
+        )
+        founder_ser.is_valid(raise_exception=True)
+        founder_ser.save()
+
+        return user

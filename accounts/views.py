@@ -22,8 +22,8 @@ from .models import (
 from .serializers import (
     UserLoginSerializer,
     JwtRefreshRequestSerializer,
-    ProposerProfileSerializer,
-    FounderProfileSerializer,
+    ProposerSerializer,
+    FounderSerializer,
     UserProposerSignupSerializer,
     UserFounderSignupSerializer,
 )
@@ -140,11 +140,11 @@ class AccountsAccessTokenRoot(APIView):
             "grant_type": "Bearer",
             "access": {
                 "token": access_str,
-                "expired_at": access_exp,
+                "expire_at": access_exp,
             },
             "refresh": {
                 "token": new_refresh_str,
-                "expired_at": refresh_exp,
+                "expire_at": refresh_exp,
             },
         }
         return Response(body, status=status.HTTP_200_OK)
@@ -400,38 +400,31 @@ class AccountsProfileRoot(APIView):
             return Response({"detail": "이미 founder 프로필이 존재합니다."}, status=status.HTTP_409_CONFLICT)
 
         if profile == "proposer":
-            serializer = ProposerProfileSerializer(data=request.data)
+            # 시리얼라이저로 생성 (user는 context로 주입)
+            serializer = ProposerSerializer(
+                data=request.data,
+                context={"request": request, "user": user},
+            )
             serializer.is_valid(raise_exception=True)
-            v = serializer.validated_data
+            proposer = serializer.save()
 
-            proposer = Proposer.objects.create(user=user, industry=v["industry"])
-            addr_list = v.get("address") or []
-            if addr_list:
-                first_addr = addr_list[0]
-                ProposerLevel.objects.create(user=proposer, level=1, address=first_addr)
-                LocationHistory.objects.create(user=proposer, address=first_addr)
-
-            industry_labels = ", ".join(_labels_from_choices(IndustryChoices, v["industry"]))
+            addr_list = serializer.validated_data.get("address") or []
+            industry_labels = ", ".join(_labels_from_choices(IndustryChoices, proposer.industry))
             return Response(
                 {"proposer_profile": {"industry": industry_labels, "address": addr_list}},
                 status=status.HTTP_200_OK,
             )
 
-        serializer = FounderProfileSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        v = serializer.validated_data
-
-        addresses = (v.get("address") or [])[:2]
-        Founder.objects.create(
-            user=user,
-            industry=v["industry"],
-            address=addresses,
-            target=v["target"],
-            business_hours=v["business_hours"],
+        serializer = FounderSerializer(
+            data=request.data,
+            context={"request": request, "user": user},
         )
+        serializer.is_valid(raise_exception=True)
+        founder = serializer.save()
 
-        industry_labels = ", ".join(_labels_from_choices(IndustryChoices, v["industry"]))
-        target_labels = _labels_from_choices(FounderTargetChoices, v["target"])
+        addresses = founder.address or []
+        industry_labels = ", ".join(_labels_from_choices(IndustryChoices, founder.industry))
+        target_labels = _labels_from_choices(FounderTargetChoices, founder.target)
 
         return Response(
             {
@@ -439,8 +432,9 @@ class AccountsProfileRoot(APIView):
                     "industry": industry_labels,
                     "address": addresses,
                     "target": target_labels,
-                    "business_hours": v["business_hours"],
+                    "business_hours": founder.business_hours or {},
                 }
             },
             status=status.HTTP_200_OK,
         )
+
