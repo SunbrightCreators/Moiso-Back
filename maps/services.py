@@ -49,16 +49,16 @@ class GeocodingService:
         )
         return response.json()
 
-    def get_address_to_position(self, address:str) -> PositionType:
+    def get_address_to_position(self, query_address:str) -> PositionType:
         '''
         주소를 좌표(위도,경도)로 변환합니다.
         Args:
-            address (str): 주소
+            query_address (str): 주소
         Returns:
             position (PositionType): 좌표
         '''
         response = self.get_geocoding(
-            query=address,
+            query=query_address,
             count=1,
         )
 
@@ -72,16 +72,16 @@ class GeocodingService:
             'longitude': float(first_address['y'])
         }
 
-    def get_address_to_legal(self, address:str) -> list[dict]:
+    def get_address_to_legal(self, query_address:str) -> list[dict]:
         '''
         일부 주소로 법정동 주소와 좌표를 검색합니다.
         Args:
-            address (str): 주소
+            query_address (str): 주소
         Returns:
             result (list[dict]): 딕셔너리(인덱스 번호, 법정동 주소, 좌표)의 배열
         '''
         response = self.get_geocoding(
-            query=address,
+            query=query_address,
         )
 
         if not response.get('addresses'):
@@ -216,16 +216,16 @@ class ReverseGeocodingService:
         )
         return response.json()
 
-    def get_position_to_legal(self, position:PositionType) -> AddressType.LegalType:
+    def get_position_to_legal(self, query_position:PositionType) -> AddressType.LegalType:
         '''
         좌표(위도,경도)를 법정동 주소로 변환합니다.
         Args:
-            position (PositionType): 좌표
+            query_position (PositionType): 좌표
         Returns:
             address (AddressType.LegalType): 법정동 주소
         '''
         response = self.get_reverse_geocoding(
-            coords=f'{position['latitude']},{position['longitude']}',
+            coords=f'{query_position['latitude']},{query_position['longitude']}',
             orders=['legalcode']
         )
 
@@ -240,16 +240,16 @@ class ReverseGeocodingService:
             'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
         }
 
-    def get_position_to_full(self, position:PositionType) -> AddressType.FullType:
+    def get_position_to_full(self, query_position:PositionType) -> AddressType.FullType:
         '''
         좌표(위도,경도)를 전체 주소로 변환합니다.
         Args:
-            position (PositionType): 좌표
+            query_position (PositionType): 좌표
         Returns:
             address (AddressType.FullType): 전체 주소
         '''
         response = self.get_reverse_geocoding(
-            coords=f'{position['latitude']},{position['longitude']}',
+            coords=f'{query_position['latitude']},{query_position['longitude']}',
             orders=['legalcode','addr','roadaddr']
         )
 
