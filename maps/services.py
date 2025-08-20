@@ -90,12 +90,16 @@ class GeocodingService:
         result = list()
 
         for index, address in enumerate(response['addresses'], start=1):
+            sido = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIDO'), {}).get('longName')
+            sigungu = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIGUGUN'), {}).get('longName')
+            eupmyundong = next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'DONGMYUN'), {}).get('longName')
+ 
             result.append({
                 'id': index,
                 'address': {
-                    'sido': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIDO'), {}).get('longName'),
-                    'sigungu': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'SIGUGUN'), {}).get('longName'),
-                    'eupmyundong': next((address_element for address_element in address['addressElements'] if address_element['types'][0] == 'DONGMYUN'), {}).get('longName'),
+                    'sido': sido,
+                    'sigungu': sigungu,
+                    'eupmyundong': eupmyundong,
                 },
                 'position': {
                     'latitude': float(address.get('x')),
@@ -233,11 +237,14 @@ class ReverseGeocodingService:
             raise NotFound('주소를 찾을 수 없어요.')
 
         legalcode = response['results'][0]
+        sido = legalcode.get('region', {}).get('area1', {}).get('name') or None
+        sigungu = legalcode.get('region', {}).get('area2', {}).get('name') or None
+        eupmyundong = legalcode.get('region', {}).get('area3', {}).get('name') or None
 
         return {
-            'sido': legalcode.get('region', {}).get('area1', {}).get('name') or None,
-            'sigungu': legalcode.get('region', {}).get('area2', {}).get('name') or None,
-            'eupmyundong': legalcode.get('region', {}).get('area3', {}).get('name') or None,
+            'sido': sido,
+            'sigungu': sigungu,
+            'eupmyundong': eupmyundong,
         }
 
     def get_position_to_full(self, query_position:PositionType) -> AddressType.FullType:
