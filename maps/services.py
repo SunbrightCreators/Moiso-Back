@@ -103,6 +103,9 @@ class GeocodingService:
                 }
             })
 
+        if not result:
+            raise NotFound('검색 결과가 없어요.')
+
         return result
 
     def get_address_to_full(self, query_address:str, filter_address:str|None=None, filter_type:Literal['road']|None=None) -> list[dict]:
