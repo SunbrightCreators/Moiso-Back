@@ -215,4 +215,4 @@ class Founder(models.Model):
     )
 
     def __str__(self):
-        return self.user.user.email
+        return self.user.email
