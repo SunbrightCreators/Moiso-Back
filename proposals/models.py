@@ -1,5 +1,6 @@
 from django.db import models
 from utils.choices import IndustryChoices, RadiusChoices
+from .managers import ProposalManager
 
 class Proposal(models.Model):
     user = models.ForeignKey(
@@ -71,6 +72,8 @@ class Proposal(models.Model):
         null=True,
         blank=True,
     )
+
+    objects = ProposalManager()
 
     def __str__(self):
         return self.title
