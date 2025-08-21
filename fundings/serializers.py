@@ -55,10 +55,11 @@ class FundingListSerializer(serializers.ModelSerializer):
         return diff.days
 
     def get_image(self, obj):
-        return [obj.image1.url, obj.image2.url, obj.image3.url]
+        images = filter(None, [obj.image1, obj.image2, obj.image3])
+        return [image.url for image in images]
 
     def get_founder(self, obj):
         return {
             'name': obj.founder_name,
-            'image': obj.founder_image.url or None,
+            'image': obj.founder_image.url if obj.founder_image else None,
         }
