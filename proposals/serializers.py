@@ -4,6 +4,7 @@ from utils.choices import IndustryChoices, RadiusChoices
 from utils.serializer_fields import HumanizedDateTimeField
 from .models import Proposal, ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
 from accounts.models import ProposerLevel
+from fundings.models import Funding
 
 
 def _label(choices_cls, value):
@@ -136,6 +137,7 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
     position       = serializers.SerializerMethodField()
     likes_count    = serializers.SerializerMethodField()
     scraps_count   = serializers.SerializerMethodField()
+    has_funding    = serializers.SerializerMethodField() 
 
     class Meta:
         model  = Proposal
@@ -153,7 +155,7 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
             "position",
             "likes_count",
             "scraps_count",
-            # founder일 때만 to_representation에서 likes_analysis 추가
+            "has_funding",
         )
 
     # ---- basics ----
@@ -170,7 +172,6 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
         return _label(IndustryChoices, obj.industry)
 
     def get_created_at(self, obj: Proposal):
-        # ✅ 한국시간 기준으로 포맷
         dt = timezone.localtime(obj.created_at)
         return dt.strftime("%Y.%m.%d. %H:%M")
 
@@ -180,7 +181,7 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
         name = getattr(account_user, "name", None)
         profile_image = _abs_url(request, getattr(account_user, "profile_image", None))
 
-        # ✅ 제안글 주소 기준 "최신" 지역 레벨 (created_at)
+        # 제안글 주소 기준 "최신" 지역 레벨 (created_at)
         addr = obj.address or {}
         latest_level = (
             ProposerLevel.objects
@@ -228,6 +229,9 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
             ProposerScrapProposal.objects.filter(proposal=obj).count()
             + FounderScrapProposal.objects.filter(proposal=obj).count()
         )
+    # ✅ 펀딩 존재 여부
+    def get_has_funding(self, obj: Proposal) -> bool:
+        return Funding.objects.filter(proposal=obj).exists()
 
     # ---- founder 전용 필드 주입 ----
     def to_representation(self, instance):

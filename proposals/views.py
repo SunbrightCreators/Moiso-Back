@@ -67,7 +67,7 @@ class ProposalsRoot(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ QueryDict를 일반 dict로 재구성 (여기서 JSON 문자열을 파싱)
+        # QueryDict를 일반 dict로 재구성 (JSON 문자열 파싱)
         payload = {
             "title":   _clean(request.data.get("title")),
             "content": _clean(request.data.get("content")),
@@ -181,6 +181,9 @@ class ProposalsZoom(APIView):
             group = "address__eupmyundong"
             base = Proposal.objects.filter(address__sido=sido, address__sigungu=sigungu)
 
+        #수락된 제안글 지우기
+        base = base.filter(funding__isnull=True)
+
         if industry:
             base = base.filter(industry=industry)
 
@@ -225,6 +228,7 @@ class ProposalsZoom(APIView):
                 address__sigungu=sigungu,
                 address__eupmyundong=eupmyundong,
             )
+            .filter(funding__isnull=True)
             .annotate(
                 likes_count=Count("proposer_like_proposal", distinct=True),
                 proposer_scraps=Count("proposer_scrap_proposal", distinct=True),
@@ -251,7 +255,7 @@ class ProposalsZoom(APIView):
                 return Response({"detail": "Invalid industry choice."}, status=status.HTTP_400_BAD_REQUEST)
             qs = qs.filter(industry=industry)
 
-        # ✅ 기본값 '최신순'으로 변경 (명세 일치)
+
         order = request.query_params.get("order", "최신순")
         order_map = {
             "인기순": "-likes_count",
