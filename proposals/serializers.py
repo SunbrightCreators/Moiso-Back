@@ -17,8 +17,8 @@ class ProposalIdSerializer(serializers.Serializer):
 
 class ProposalListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    created_at = HumanizedDateTimeField()
     user = serializers.SerializerMethodField()
+    created_at = HumanizedDateTimeField()
     likes_count = serializers.IntegerField()
     scraps_count = serializers.IntegerField()
 
