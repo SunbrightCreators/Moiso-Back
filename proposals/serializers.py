@@ -16,6 +16,7 @@ class ProposalIdSerializer(serializers.Serializer):
         return value
 
 class ProposalListSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
     created_at = HumanizedDateTimeField()
     user = serializers.SerializerMethodField()
     likes_count = serializers.IntegerField()
@@ -25,7 +26,10 @@ class ProposalListSerializer(serializers.ModelSerializer):
         model = Proposal
         fields = '__all__'
         read_only_fields = '__all__'
-    
+
+    def get_image(self, obj):
+        return [obj.image1.url, obj.image2.url, obj.image3.url]
+
     def get_user(self, obj):
         user = obj.user.user
         return {
