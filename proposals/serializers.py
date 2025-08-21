@@ -28,11 +28,12 @@ class ProposalListSerializer(serializers.ModelSerializer):
         read_only_fields = '__all__'
 
     def get_image(self, obj):
-        return [obj.image1.url, obj.image2.url, obj.image3.url]
+        images = filter(None, [obj.image1, obj.image2, obj.image3])
+        return [image.url for image in images]
 
     def get_user(self, obj):
         user = obj.user.user
         return {
             'name': user.name,
-            'profile_image': user.profile_image.url or None,
+            'profile_image': user.profile_image.url if user.profile_image else None,
         }
