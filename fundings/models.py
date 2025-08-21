@@ -40,7 +40,7 @@ class Funding(models.Model):
         help_text='''
         {
             "start": "09:00",
-            "end": "18:00",
+            "end": "18:00"
         }
         '''
     )
@@ -74,7 +74,7 @@ class Funding(models.Model):
         help_text='''
         {
             "start": "2025-07-21",
-            "end": "2025-08-24",
+            "end": "2025-08-24"
         }
         '''
     )
