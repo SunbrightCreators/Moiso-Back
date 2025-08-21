@@ -1,7 +1,8 @@
 from django.http import HttpRequest
+from django.db.models import Count, Sum
 from utils.decorators import validate_data, validate_permission, validate_unique
-from .models import ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
-from .serializers import ProposerScrapProposalSerializer, FounderScrapProposalSerializer
+from .models import Proposal, ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
+from .serializers import ProposalListSerializer
 
 class ProposerLikeProposalService:
     def __init__(self, request:HttpRequest):
@@ -50,15 +51,18 @@ class ProposerScrapProposalService:
             return False
 
     def get(self, sido:str|None=None, sigungu:str|None=None, eupmyundong:str|None=None):
-        proposer_scrap_proposals = ProposerScrapProposal.objects.filter(
-            user__user=self.request.user,
-            proposal__address__sido=sido,
-            proposal__address__sigungu=sigungu,
-            proposal__address__eupmyundong=eupmyundong,
+        proposals = Proposal.objects.filter(
+            proposer_scrap_proposal__user__user=self.request.user,
+            address__sido=sido,
+            address__sigungu=sigungu,
+            address__eupmyundong=eupmyundong,
+        ).annotate(
+            likes_count=Count('proposer_like_proposal'),
+            scraps_count=Count('proposer_scrap_proposal')+Count('founder_scrap_proposal'),
         ).select_related(
-            'proposal__user__user',
+            'user__user',
         )
-        serializer = ProposerScrapProposalSerializer(proposer_scrap_proposals)
+        serializer = ProposalListSerializer(proposals)
         return serializer.data
 
 class FounderScrapProposalService:
@@ -85,13 +89,16 @@ class FounderScrapProposalService:
             return False
 
     def get(self, sido:str|None=None, sigungu:str|None=None, eupmyundong:str|None=None):
-        founder_scrap_proposals = FounderScrapProposal.objects.filter(
-            user__user=self.request.user,
-            proposal__address__sido=sido,
-            proposal__address__sigungu=sigungu,
-            proposal__address__eupmyundong=eupmyundong,
+        proposals = Proposal.objects.filter(
+            founder_scrap_proposal__user__user=self.request.user,
+            address__sido=sido,
+            address__sigungu=sigungu,
+            address__eupmyundong=eupmyundong,
+        ).annotate(
+            likes_count=Count('proposer_like_proposal'),
+            scraps_count=Count('proposer_scrap_proposal')+Count('founder_scrap_proposal'),
         ).select_related(
-            'proposal__user__user',
+            'user__user',
         )
-        serializer = FounderScrapProposalSerializer(founder_scrap_proposals)
+        serializer = ProposalListSerializer(proposals)
         return serializer.data

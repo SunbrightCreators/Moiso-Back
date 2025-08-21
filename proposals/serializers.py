@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from utils.serializer_fields import HumanizedDateTimeField
-from .models import Proposal, ProposerScrapProposal, FounderScrapProposal
+from .models import Proposal
 
 class ProposalIdSerializer(serializers.Serializer):
     proposal_id = serializers.IntegerField(
@@ -36,37 +36,3 @@ class ProposalListSerializer(serializers.ModelSerializer):
             'name': user.name,
             'profile_image': user.profile_image.url or None,
         }
-
-class ProposerScrapProposalSerializer(serializers.ModelSerializer):
-    scrapped_at = serializers.DateTimeField(source='created_at')
-
-    class Meta:
-        model = ProposerScrapProposal
-        fields = ('scrapped_at')
-
-    def to_representation(self, instance):
-        proposal_data = ProposalListSerializer(
-            instance.proposal,
-            context=self.context,
-        ).data
-
-        proposal_data['scrapped_at'] = instance.created_at
-
-        return proposal_data
-
-class FounderScrapProposalSerializer(serializers.ModelSerializer):
-    scrapped_at = serializers.DateTimeField(source='created_at')
-
-    class Meta:
-        model = FounderScrapProposal
-        fields = ('scrapped_at')
-
-    def to_representation(self, instance):
-        proposal_data = ProposalListSerializer(
-            instance.proposal,
-            context=self.context,
-        ).data
-
-        proposal_data['scrapped_at'] = instance.created_at
-
-        return proposal_data
