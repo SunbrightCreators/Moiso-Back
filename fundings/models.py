@@ -10,6 +10,7 @@ from utils.choices import (
     RewardAmountChoices,
     RewardStatusChoices,
 )
+from .managers import FundingManager
 
 class Funding(models.Model):
     user = models.ForeignKey(
@@ -125,6 +126,8 @@ class Funding(models.Model):
     reward_code = models.CharField(
         max_length=4,
     )
+
+    objects = FundingManager()
 
     def __str__(self):
         return self.title
