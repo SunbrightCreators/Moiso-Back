@@ -4,9 +4,9 @@ from rest_framework import status
 from rest_framework.response import Response
 
 def example(func):
-    '''
+    """
     예시 코드입니다.
-    '''
+    """
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         # 여기에 데코레이터 코드를 작성하세요.
@@ -56,16 +56,41 @@ def require_query_params(*required_query_params:str):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            missing_params = []
+            errors = dict()
 
             for param in required_query_params:
                 if not request.query_params.get(param):
-                    missing_params.append(param)
+                    errors[param] = "This query parameter is required."
 
-            if missing_params:
-                missing_str = ', '.join(missing_params)
+            if errors:
                 return Response(
-                    {"detail":f"Required query parameters missing: {missing_str}"},
+                    errors,
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+def validate_path_choices(**path_variables):
+    """
+    Examples:
+        validate_path_choices(profile=('proposer', 'founder'))
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            errors = dict()
+
+            for var_name, choices in path_variables.items():
+                if var_name not in kwargs:
+                    errors[var_name] = "This path variable is required."
+                elif kwargs[var_name] not in choices:
+                    errors[var_name] = f"Ensure this value has one of these: {', '.join(str(choice) for choice in choices)}"
+
+            if errors:
+                return Response(
+                    errors,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
