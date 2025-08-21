@@ -209,10 +209,10 @@ class Founder(models.Model):
         help_text='''
         {
             "start": "09:00",
-            "end": "18:00",
+            "end": "18:00"
         }
         '''
     )
 
     def __str__(self):
-        return self.user.user.email
+        return self.user.email
