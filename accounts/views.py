@@ -156,7 +156,7 @@ class AccountsRoot(APIView):
       - POST   : 회원가입 (Body로 프로필 자동판별: proposer_profile 또는 founder_profile)
       - DELETE : 로그인한 사용자 계정 삭제
     """
-    authentication_classes = []  # 기본 비인증 허용
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get_authenticators(self):
@@ -192,87 +192,46 @@ class AccountsRoot(APIView):
         profile = "proposer" if has_proposer else ("founder" if has_founder else data.get("profile"))
         Serializer = UserProposerSignupSerializer if profile == "proposer" else UserFounderSignupSerializer
 
+        # 시리얼라이저로 실제 생성까지 맡긴다 (create 사용)
         try:
-            serializer = Serializer(data=data)
+            serializer = Serializer(data=data, context={"request": request})
             serializer.is_valid(raise_exception=True)
+            user = serializer.save()  # ← User와 해당 프로필까지 생성됨
+        except IntegrityError:
+            return Response({"detail": "이미 존재하는 이메일입니다."}, status=status.HTTP_409_CONFLICT)
         except Exception as e:
             det = getattr(e, "detail", None)
+            # 이메일 중복을 409로 통일
             if isinstance(det, dict) and "email" in det and any("이미 존재하는 이메일" in str(msg) for msg in det["email"]):
                 return Response({"detail": "이미 존재하는 이메일입니다."}, status=status.HTTP_409_CONFLICT)
             raise
 
-        v = serializer.validated_data
+        # ----- 여기서부터 자동 로그인(JWT 발급) -----
+        refresh = RefreshToken.for_user(user)
+        access = refresh.access_token
 
-        try:
-            user = User.objects.create_user(
-                email=v["email"],
-                password=v["password"],
-                name=v["name"],
-                birth=v["birth"],
-                sex=v["sex"],
-                is_marketing_allowed=v.get("is_marketing_allowed", False),
-            )
+        access_exp = datetime.fromtimestamp(access["exp"], tz=dt_timezone.utc).isoformat().replace("+00:00", "Z")
+        refresh_exp = datetime.fromtimestamp(refresh["exp"], tz=dt_timezone.utc).isoformat().replace("+00:00", "Z")
 
-            if profile == "proposer":
-                p = v["proposer_profile"]
-                proposer = Proposer.objects.create(user=user, industry=p["industry"])
-                addr_list = p.get("address") or []
-                if addr_list:
-                    addr0 = addr_list[0]
-                    ProposerLevel.objects.create(user=proposer, level=1, address=addr0)
-                    LocationHistory.objects.create(user=proposer, address=addr0)
-            else:
-                f = v["founder_profile"]
-                addresses = (f.get("address") or [])[:2]  # 모델 size=2 제한
-                Founder.objects.create(
-                    user=user,
-                    industry=f["industry"],
-                    address=addresses,
-                    target=f["target"],
-                    business_hours=f["business_hours"],
-                )
+        profiles = []
+        if hasattr(user, "proposer"):
+            profiles.append("proposer")
+        if hasattr(user, "founder"):
+            profiles.append("founder")
 
-        except IntegrityError:
-            return Response({"detail": "이미 존재하는 이메일입니다."}, status=status.HTTP_409_CONFLICT)
-
-        return Response({"detail": "회원가입을 완료했어요."}, status=status.HTTP_201_CREATED)
-
-    @transaction.atomic
-    def delete(self, request):
-        try:
-            user = User.objects.select_for_update().get(pk=request.user.pk)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "이미 탈퇴한 계정이거나 존재하지 않습니다."},
-                status=status.HTTP_410_GONE,
-            )
-
-        # 관리자 보호
-        if user.is_staff or user.is_superuser:
-            return Response(
-                {"detail": "관리자 계정은 API로 탈퇴할 수 없습니다."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # 1) 하드 삭제 시도 (세이브포인트로 격리)
-        try:
-            with transaction.atomic():  # <- 내부 세이브포인트
-                user.delete()
-            return Response({"detail": "계정을 탈퇴했어요."}, status=status.HTTP_200_OK)
-
-        # 2) 연관 테이블 부재 등으로 실패 시 → 소프트 삭제로 폴백
-        except (ProgrammingError, OperationalError):
-            pass  # 내부 atomic이 롤백하고 나옴, 바깥 트랜잭션은 정상 상태
-
-        # 소프트 삭제(익명화 + 비활성화). email은 UNIQUE이므로 랜덤값으로 치환
-        user.email = f"deleted_{user.pk}_{get_random_string(8)}@invalid.local"
-        user.name = "탈퇴회원"
-        user.is_active = False
-        user.is_marketing_allowed = False
-        # (프로필 이미지 파일을 실제 운영에서 지울 거면 try/except로 삭제 가능)
-        user.save(update_fields=["email", "name", "is_active", "is_marketing_allowed"])
-
-        return Response({"detail": "계정을 탈퇴했어요."}, status=status.HTTP_200_OK)
+        body = {
+            "grant_type": "Bearer",
+            "access": {
+                "token": str(access),
+                "expire_at": access_exp,
+            },
+            "refresh": {
+                "token": str(refresh),
+                "expire_at": refresh_exp,
+            },
+            "profile": profiles,
+        }
+        return Response(body, status=status.HTTP_201_CREATED)
 
 class AccountsProfileRoot(APIView):
     """
