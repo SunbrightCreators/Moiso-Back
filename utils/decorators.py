@@ -56,16 +56,15 @@ def require_query_params(*required_query_params:str):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            missing_params = []
+            errors = dict()
 
             for param in required_query_params:
                 if not request.query_params.get(param):
-                    missing_params.append(param)
+                    errors[param] = "This query parameter is required."
 
-            if missing_params:
-                missing_str = ', '.join(missing_params)
+            if errors:
                 return Response(
-                    {"detail":f"Required query parameters missing: {missing_str}"},
+                    errors,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
