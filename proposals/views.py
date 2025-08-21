@@ -266,16 +266,15 @@ class ProposalsMyCreated(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # 0) Proposer 여부 확인
-        user = request.user
-        proposer = getattr(user, "proposer", None)
+        # Proposer 검사
+        proposer = getattr(request.user, "proposer", None)
         if proposer is None:
             return Response(
                 {"detail": "proposer 프로필이 존재하지 않습니다. 먼저 생성하세요."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # 1) 필수 쿼리 파라미터 (동 단위)
+        # 필수 쿼리 파라미터
         sido        = request.query_params.get("sido")
         sigungu     = request.query_params.get("sigungu")
         eupmyundong = request.query_params.get("eupmyundong")
@@ -285,7 +284,6 @@ class ProposalsMyCreated(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 2) 조회 + 최신순 정렬 (제안글 자체 created_at 기준)
         qs = (
             Proposal.objects
             .filter(
@@ -294,9 +292,8 @@ class ProposalsMyCreated(APIView):
                 address__sigungu=sigungu,
                 address__eupmyundong=eupmyundong,
             )
-            .only("id", "title", "created_at")  # 최적화
+            .only("id", "title", "created_at")
             .order_by("-created_at", "-id")
         )
-
-        serializer = ProposalMyCreatedItemSerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        data = ProposalMyCreatedItemSerializer(qs, many=True).data
+        return Response(data, status=status.HTTP_200_OK)

@@ -261,16 +261,13 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
         return data
     
 class ProposalMyCreatedItemSerializer(serializers.ModelSerializer):
-    """
-    내가 작성한 제안글 목록 카드용 (요약 필드만)
-    - created_at: 한국시간 기준 "YYYY.MM.DD." 포맷
-    """
     created_at = serializers.SerializerMethodField()
 
     class Meta:
-        model  = Proposal
+        model = Proposal
         fields = ("id", "created_at", "title")
 
     def get_created_at(self, obj: Proposal) -> str:
-        dt = timezone.localtime(obj.created_at)  # KST 보장 (settings.TIME_ZONE 사용)
+        dt = timezone.localtime(obj.created_at)
         return dt.strftime("%Y.%m.%d.")
+
