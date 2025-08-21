@@ -129,9 +129,9 @@ class ProposalMapItemSerializer(serializers.ModelSerializer):
 class ProposalDetailSerializer(serializers.ModelSerializer):
     image          = serializers.SerializerMethodField()
     industry       = serializers.SerializerMethodField()
-    created_at     = serializers.SerializerMethodField()         # "YYYY.MM.DD. HH:MM" (KST)
-    user           = serializers.SerializerMethodField()         # 이름 마스킹 + 최신 지역 레벨
-    business_hours = serializers.SerializerMethodField()         # "오전/오후 N시"
+    created_at     = serializers.SerializerMethodField()        
+    user           = serializers.SerializerMethodField()       
+    business_hours = serializers.SerializerMethodField()      
     radius         = serializers.SerializerMethodField()
     position       = serializers.SerializerMethodField()
     likes_count    = serializers.SerializerMethodField()
@@ -180,7 +180,7 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
         name = getattr(account_user, "name", None)
         profile_image = _abs_url(request, getattr(account_user, "profile_image", None))
 
-        # ✅ 제안글 주소 기준 "최신" 지역 레벨 (최근 id 또는 created_at)
+        # ✅ 제안글 주소 기준 "최신" 지역 레벨 (created_at)
         addr = obj.address or {}
         latest_level = (
             ProposerLevel.objects
@@ -190,7 +190,7 @@ class ProposalDetailSerializer(serializers.ModelSerializer):
                 address__sigungu=addr.get("sigungu"),
                 address__eupmyundong=addr.get("eupmyundong"),
             )
-            .order_by("-id")                # created_at이 있다면 "-created_at" 권장
+            .order_by("-id")            
             .values_list("level", flat=True)
             .first()
         )

@@ -1,3 +1,4 @@
+#views.py
 import json
 from typing import Any, Dict
 
@@ -121,16 +122,55 @@ class ProposalsZoom(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        sido = request.query_params.get("sido")
-        sigungu = request.query_params.get("sigungu")
+        sido        = request.query_params.get("sido")
+        sigungu     = request.query_params.get("sigungu")
         eupmyundong = request.query_params.get("eupmyundong")
+        industry    = request.query_params.get("industry")
 
-        if sido and sigungu and eupmyundong:
+        # industry 유효성(클러스터/목록 공통)
+        if industry:
+            valid = {c for c, _ in IndustryChoices.choices}
+            if industry not in valid:
+                return Response({"detail": "Invalid industry choice."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 0m: 동 이하 - 동 상세 목록 그대로 반환
+        if zoom == 0:
+            if not (sido and sigungu and eupmyundong):
+                return Response(
+                    {"detail": "sido, sigungu, eupmyundong 쿼리 파라미터가 모두 필요합니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # _dong_detail_list 내부에서 industry/order 처리
             return self._dong_detail_list(request, sido, sigungu, eupmyundong)
-        return self._cluster_counts(sido, sigungu)
 
-    def _cluster_counts(self, sido: str | None, sigungu: str | None):
-        # 그룹필드/베이스쿼리
+        # 500m: 동 클러스터 (sido, sigungu 필수)
+        if zoom == 500:
+            if not (sido and sigungu):
+                return Response(
+                    {"detail": "동 지도(500m)에는 sido와 sigungu가 필요합니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return self._cluster_counts(sido=sido, sigungu=sigungu, industry=industry)
+
+        # 2km: 구 클러스터 (sido 필수)
+        if zoom == 2000:
+            if not sido:
+                return Response(
+                    {"detail": "구 지도(2km)에는 sido가 필요합니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return self._cluster_counts(sido=sido, sigungu=None, industry=industry)
+
+        # 10km: 도 클러스터 (전국)
+        return self._cluster_counts(sido=None, sigungu=None, industry=industry)
+
+    def _cluster_counts(self, sido: str | None, sigungu: str | None, industry: str | None):
+        """
+        - sido/sigungu 조합에 따라 그룹 필드를 결정
+        - industry가 있으면 해당 업종만 집계
+        - 응답: [{id, address, position{lat,lng}, number}]
+        """
+        # 그룹/베이스쿼리 결정
         if not sido and not sigungu:
             group = "address__sido"
             base = Proposal.objects.all()
@@ -141,7 +181,10 @@ class ProposalsZoom(APIView):
             group = "address__eupmyundong"
             base = Proposal.objects.filter(address__sido=sido, address__sigungu=sigungu)
 
-        # 그룹화(빈값/NULL 제외) + 개수 + 샘플 id
+        if industry:
+            base = base.filter(industry=industry)
+
+        # 빈값/NULL 제외 + 개수 + 샘플 id
         base = base.exclude(**{f"{group}__isnull": True}).exclude(**{group: ""})
         grouped = (
             base.values(group)
@@ -161,7 +204,7 @@ class ProposalsZoom(APIView):
             name = g[group]
             if not name:
                 continue
-            pos_json = pos_map.get(g["sample_id"], {})
+            pos_json = pos_map.get(g["sample_id"], {}) or {}
             data.append({
                 "id": idx,
                 "address": name,
@@ -188,7 +231,6 @@ class ProposalsZoom(APIView):
                 founder_scraps=Count("founder_scrap_proposal", distinct=True),
             )
             .annotate(
-                # 정렬용(명세에만 필요): 동일 동에서의 작성자 레벨 최대/최신 중 선택 가능
                 level_area=Max(
                     "user__proposer_level__level",
                     filter=Q(
@@ -201,7 +243,7 @@ class ProposalsZoom(APIView):
             )
         )
 
-        # 업종 필터
+        # 업종 필터(선택)
         industry = request.query_params.get("industry")
         if industry:
             valid = {c for c, _ in IndustryChoices.choices}
@@ -209,8 +251,8 @@ class ProposalsZoom(APIView):
                 return Response({"detail": "Invalid industry choice."}, status=status.HTTP_400_BAD_REQUEST)
             qs = qs.filter(industry=industry)
 
-        # 정렬: 기본 '인기순'
-        order = request.query_params.get("order", "인기순")
+        # ✅ 기본값 '최신순'으로 변경 (명세 일치)
+        order = request.query_params.get("order", "최신순")
         order_map = {
             "인기순": "-likes_count",
             "최신순": "-created_at",
@@ -225,7 +267,6 @@ class ProposalsZoom(APIView):
         qs = qs.select_related("user__user").order_by(order_map[order], "-id")
         serializer = ProposalMapItemSerializer(qs, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 # ── GET /proposals/{proposal_id}/{profile} : 상세 ────────────────────────
 class ProposalsPk(APIView):
