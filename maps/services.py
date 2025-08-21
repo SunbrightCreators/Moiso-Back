@@ -229,7 +229,7 @@ class ReverseGeocodingService:
             address (AddressType.LegalType): 법정동 주소
         '''
         response = self.get_reverse_geocoding(
-            coords=f'{query_position['latitude']},{query_position['longitude']}',
+            coords=f"{query_position['latitude']},{query_position['longitude']}",
             orders=['legalcode']
         )
 
@@ -257,7 +257,7 @@ class ReverseGeocodingService:
             address (AddressType.FullType): 전체 주소
         '''
         response = self.get_reverse_geocoding(
-            coords=f'{query_position['latitude']},{query_position['longitude']}',
+            coords=f"{query_position['latitude']},{query_position['longitude']}",
             orders=['legalcode','addr','roadaddr']
         )
 
