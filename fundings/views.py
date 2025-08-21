@@ -64,3 +64,19 @@ class ProfileScrap(APIView):
                 { 'detail': '스크랩을 취소했어요.' },
                 status=status.HTTP_200_OK,
             )
+
+    def get(self, request:HttpRequest, profile:Literal['proposer','founder'], format=None):
+        sido = request.query_params.get('sido')
+        sigungu = request.query_params.get('sigungu')
+        eupmyundong = request.query_params.get('eupmyundong')
+
+        if profile == 'proposer':
+            service = ProposerScrapFundingService(request)
+        elif profile == 'founder':
+            service = FounderScrapFundingService(request)
+        data = service.get(sido, sigungu, eupmyundong)
+
+        return Response(
+            data,
+            status=status.HTTP_200_OK,
+        )
