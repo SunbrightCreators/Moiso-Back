@@ -26,7 +26,7 @@ class ProposerLike(APIView):
 
         if is_created:
             return Response(
-                { 'detail': '이 제안글을 좋아해요.' },
+                { 'detail': '이 제안을 좋아해요.' },
                 status=status.HTTP_201_CREATED,
             )
         else:
@@ -56,7 +56,7 @@ class ProfileScrap(APIView):
 
         if is_created:
             return Response(
-                { 'detail': '이 제안글을 스크랩했어요.' },
+                { 'detail': '이 제안을 스크랩했어요.' },
                 status=status.HTTP_201_CREATED,
             )
         else:
