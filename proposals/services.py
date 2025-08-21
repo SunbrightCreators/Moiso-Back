@@ -1,5 +1,5 @@
 from django.http import HttpRequest
-from django.db.models import Count, Sum
+from django.db.models import Count
 from utils.decorators import validate_data, validate_permission, validate_unique
 from .models import Proposal, ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
 from .serializers import ProposalListSerializer
