@@ -72,7 +72,7 @@ class ProposerScrapProposalService:
         ).with_analytics(
         ).with_user(
         )
-        serializer = ProposalListSerializer(proposals)
+        serializer = ProposalListSerializer(proposals, many=True)
         return serializer.data
 
 class FounderScrapProposalService:
@@ -114,5 +114,5 @@ class FounderScrapProposalService:
         ).with_analytics(
         ).with_user(
         )
-        serializer = ProposalListSerializer(proposals)
+        serializer = ProposalListSerializer(proposals, many=True)
         return serializer.data
