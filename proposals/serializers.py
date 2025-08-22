@@ -16,6 +16,8 @@ class ProposalIdSerializer(serializers.Serializer):
         return value
 
 class ProposalListSerializer(serializers.ModelSerializer):
+    industry = serializers.SerializerMethodField()
+    radius = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
     created_at = HumanizedDateTimeField()
@@ -24,7 +26,13 @@ class ProposalListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Proposal
-        fields = '__all__'
+        fields = ('id','industry','title','content','business_hours','address','radius','image','user','created_at','likes_count','scraps_count',)
+
+    def get_industry(self, obj):
+        return obj.get_industry_display()
+
+    def get_radius(self, obj):
+        return obj.get_radius_display()
 
     def get_image(self, obj):
         images = filter(None, [obj.image1, obj.image2, obj.image3])
