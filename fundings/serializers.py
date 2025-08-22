@@ -21,7 +21,7 @@ class FundingIdSerializer(serializers.Serializer):
 class FundingListSerializer(serializers.ModelSerializer):
     industry = serializers.SerializerMethodField()
     expected_opening_date = serializers.SerializerMethodField()
-    address = serializers.JSONField(source='proposal__address')
+    address = serializers.JSONField(source='proposal.address')
     radius = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
     days_left = serializers.SerializerMethodField()
