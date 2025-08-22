@@ -10,6 +10,7 @@ from utils.choices import (
     RewardAmountChoices,
     RewardStatusChoices,
 )
+from .querysets import FundingQuerySet
 
 class Funding(models.Model):
     user = models.ForeignKey(
@@ -22,18 +23,25 @@ class Funding(models.Model):
         on_delete=models.PROTECT,
         related_name="funding",
     )
+    business_name = models.CharField(
+        max_length=20,
+        help_text='상호명',
+    )
     title = models.CharField(
         max_length=50,
+        help_text='프로젝트 제목',
     )
     summary = models.CharField(
         max_length=100,
         null=True,
         blank=True,
+        help_text='프로젝트 요약',
     )
     content = models.CharField(
         max_length=1000,
         null=True,
         blank=True,
+        help_text='프로젝트 내용',
     )
     business_hours = models.JSONField(
         default=dict,
@@ -65,8 +73,9 @@ class Funding(models.Model):
         null=True,
         blank=True,
     )
-    contact = models.CharField(
+    contact = models.URLField(
         max_length=50,
+        help_text='http://localhost:8000',
     )
     goal_amount = models.PositiveBigIntegerField()
     schedule = models.JSONField(
@@ -80,6 +89,7 @@ class Funding(models.Model):
     )
     schedule_description = models.CharField(
        max_length=1000,
+       help_text='프로젝트 일정',
     )
     expected_opening_date = models.CharField(
         max_length=7,
@@ -89,18 +99,24 @@ class Funding(models.Model):
                 message="YYYY-MM 형식으로 입력하세요.",
             )
         ],
+        help_text='2025-08',
     )
     amount_description = models.CharField(
         max_length=1000,
+        help_text='예산 사용 계획서',
     )
     founder_name = models.CharField(
         max_length=30,
+        help_text='창업자 이름',
     )
     founder_description = models.CharField(
         max_length=500,
+        help_text='창업자 소개',
     )
     founder_image = models.ImageField(
         upload_to="funding/founder_image",
+        null=True,
+        blank=True,
     )
     bank_category = models.CharField(
         max_length=10,
@@ -108,15 +124,18 @@ class Funding(models.Model):
     )
     bank_account = models.CharField(
         max_length=16,
+        help_text='00000000000000',
     )
     bank_bankbook = models.FileField(
         upload_to="funding/bank_bankbook",
     )
     policy = models.CharField(
         max_length=500,
+        help_text='프로젝트 정책',
     )
     expected_problem = models.CharField(
         max_length=500,
+        help_text='예상되는 어려움',
     )
     status = models.CharField(
         max_length=11,
@@ -124,7 +143,11 @@ class Funding(models.Model):
     )
     reward_code = models.CharField(
         max_length=4,
+        null=True,
+        blank=True,
     )
+
+    objects = FundingQuerySet.as_manager()
 
     def __str__(self):
         return self.title

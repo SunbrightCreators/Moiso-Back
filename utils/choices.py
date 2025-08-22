@@ -8,6 +8,10 @@ class ExampleChoices(IntegerChoices):
     TWO   = 2, '이'
     THREE = 3, '삼'
 
+class ProfileChoices(TextChoices):
+    proposer = 'proposer', '지역주민'
+    founder  = 'founder',  '창업자'
+
 class SexChoices(TextChoices):
     WOMAN = 'WOMAN', '여성'
     MAN   = 'MAN',   '남성'

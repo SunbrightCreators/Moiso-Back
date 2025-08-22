@@ -1,27 +1,27 @@
-#views.py
 import json
 from typing import Any, Dict
-
 from django.db.models import Count, Max, F, Q
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.http import HttpRequest
+from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-
+from utils.choices import ProfileChoices, IndustryChoices, ZoomChoices
+from utils.decorators import validate_path_choices
 from .models import Proposal
-from django.utils.decorators import method_decorator
-from utils.choices import IndustryChoices, ZoomChoices
 from .serializers import (
     ProposalCreateSerializer,
     ProposalMapItemSerializer,
     ProposalDetailSerializer,
-    ProposalMyCreatedItemSerializer
+    ProposalMyCreatedItemSerializer,
+    ProposalIdSerializer
 )
+from .services import ProposerLikeProposalService, ProposerScrapProposalService, FounderScrapProposalService
 
 
 def _clean(val):
@@ -35,7 +35,6 @@ def _maybe_json(val):
         except Exception:
             return val  # 파싱 실패 시 원문 유지
     return val
-
 
 
 # ── POST /proposals : 제안글 추가 ─────────────────────────────────────────
@@ -342,3 +341,75 @@ class ProposalsMyCreated(APIView):
         )
         data = ProposalMyCreatedItemSerializer(qs, many=True).data
         return Response(data, status=status.HTTP_200_OK)
+
+class ProposerLike(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request:HttpRequest, format=None):
+        serializer = ProposalIdSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        proposal_id = serializer.validated_data['proposal_id']
+
+        service = ProposerLikeProposalService(request)
+        is_created = service.post(proposal_id)
+
+        if is_created:
+            return Response(
+                { 'detail': '이 제안을 좋아해요.' },
+                status=status.HTTP_201_CREATED,
+            )
+        else:
+            return Response(
+                { 'detail': '좋아요를 취소했어요.' },
+                status=status.HTTP_200_OK,
+            )
+
+@method_decorator(validate_path_choices(profile=ProfileChoices.values), name='dispatch')
+class ProfileScrap(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request:HttpRequest, profile, format=None):
+        serializer = ProposalIdSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        proposal_id = serializer.validated_data['proposal_id']
+
+        if profile == ProfileChoices.proposer.value:
+            service = ProposerScrapProposalService(request)
+        elif profile == ProfileChoices.founder.value:
+            service = FounderScrapProposalService(request)
+        is_created = service.post(proposal_id)
+
+        if is_created:
+            return Response(
+                { 'detail': '이 제안을 스크랩했어요.' },
+                status=status.HTTP_201_CREATED,
+            )
+        else:
+            return Response(
+                { 'detail': '스크랩을 취소했어요.' },
+                status=status.HTTP_200_OK,
+            )
+
+    def get(self, request:HttpRequest, profile, format=None):
+        sido = request.query_params.get('sido')
+        sigungu = request.query_params.get('sigungu')
+        eupmyundong = request.query_params.get('eupmyundong')
+
+        if profile == ProfileChoices.proposer.value:
+            service = ProposerScrapProposalService(request)
+        elif profile == ProfileChoices.founder.value:
+            service = FounderScrapProposalService(request)
+        data = service.get(sido, sigungu, eupmyundong)
+
+        return Response(
+            data,
+            status=status.HTTP_200_OK,
+        )
