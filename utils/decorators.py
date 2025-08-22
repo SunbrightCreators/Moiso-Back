@@ -14,45 +14,45 @@ def example(func):
         return func(self, *args, **kwargs)
     return wrapper
 
-def validate_data(func):
+def validate_data(service_func):
     """
     클라이언트가 전송한 데이터가 유효한지 검증합니다.
     Service에서 사용해 주세요.
     """
-    @wraps(func)
+    @wraps(service_func)
     def wrapper(self, *args, **kwargs):
         if not self.serializer.is_valid():
             return Response(
                 self.serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return func(self, *args, **kwargs)
+        return service_func(self, *args, **kwargs)
     return wrapper
 
-def validate_permission(func):
+def validate_permission(service_func):
     """
     클라이언트가 해당 인스턴스에 대하여 요청을 수행할 권한을 갖고 있는지 검증합니다.
     Service에서 사용해 주세요.
     """
-    @wraps(func)
+    @wraps(service_func)
     def wrapper(self, *args, **kwargs):
         if self.instance.user != self.request.user:
             return Response(
                 {"detail":"권한이 없습니다."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return func(self, *args, **kwargs)
+        return service_func(self, *args, **kwargs)
     return wrapper
 
-def validate_unique(func):
+def validate_unique(service_func):
     """
     클라이언트의 요청이 UNIQUE 제약조건을 준수하는지 검증합니다.
     Service에서 사용해 주세요.
     """
-    @wraps(func)
+    @wraps(service_func)
     def wrapper(self, *args, **kwargs):
         try:
-            return func(self, *args, **kwargs)
+            return service_func(self, *args, **kwargs)
         except IntegrityError as error:
             if "UNIQUE constraint failed" in str(error):
                 return Response(
