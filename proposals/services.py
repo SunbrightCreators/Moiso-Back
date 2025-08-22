@@ -1,4 +1,5 @@
 from django.http import HttpRequest
+from rest_framework.exceptions import PermissionDenied
 from utils.choices import ProfileChoices
 from utils.decorators import require_profile
 from .models import Proposal, ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
@@ -18,6 +19,10 @@ class ProposerLikeProposalService:
                 - `True`: 좋아요 추가
                 - `False`: 좋아요 삭제
         '''
+        proposal = Proposal.objects.get(id=proposal_id)
+        if proposal.user.user == self.request.user:
+            raise PermissionDenied('자신의 제안을 좋아할 수 없어요.')
+
         obj, created = ProposerLikeProposal.objects.get_or_create(
             user=self.request.user.proposer,
             proposal=proposal_id,
@@ -42,6 +47,10 @@ class ProposerScrapProposalService:
                 - `True`: 스크랩 추가
                 - `False`: 스크랩 삭제
         '''
+        proposal = Proposal.objects.get(id=proposal_id)
+        if proposal.user.user == self.request.user:
+            raise PermissionDenied('자신의 제안을 스크랩할 수 없어요.')
+
         obj, created = ProposerScrapProposal.objects.get_or_create(
             user=self.request.user.proposer,
             proposal=proposal_id,
@@ -80,6 +89,10 @@ class FounderScrapProposalService:
                 - `True`: 스크랩 추가
                 - `False`: 스크랩 삭제
         '''
+        proposal = Proposal.objects.get(id=proposal_id)
+        if proposal.user.user == self.request.user:
+            raise PermissionDenied('자신의 제안을 스크랩할 수 없어요.')
+
         obj, created = FounderScrapProposal.objects.get_or_create(
             user=self.request.user.founder,
             proposal=proposal_id,
