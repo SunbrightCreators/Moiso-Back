@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Q, Count, Sum
 from utils.choices import PaymentStatusChoices
 
-class FundingManager(models.Manager):
+class FundingQuerySet(models.QuerySet):
     def with_proposal(self):
         return self.select_related(
             'proposal',
@@ -19,6 +19,9 @@ class FundingManager(models.Manager):
         )
 
     def filter_address(self, sido, sigungu, eupmyundong):
+        if not (sido and sigungu and eupmyundong):
+            return self
+
         return self.filter(
             proposal__address__sido=sido,
             proposal__address__sigungu=sigungu,
