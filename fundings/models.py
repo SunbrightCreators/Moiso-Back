@@ -10,6 +10,7 @@ from utils.choices import (
     RewardAmountChoices,
     RewardStatusChoices,
 )
+from .querysets import FundingQuerySet
 
 class Funding(models.Model):
     user = models.ForeignKey(
@@ -145,6 +146,8 @@ class Funding(models.Model):
         null=True,
         blank=True,
     )
+
+    objects = FundingQuerySet.as_manager()
 
     def __str__(self):
         return self.title
