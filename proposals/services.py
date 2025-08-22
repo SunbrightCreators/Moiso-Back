@@ -71,6 +71,8 @@ class ProposerScrapProposalService:
             eupmyundong=eupmyundong,
         ).with_analytics(
         ).with_user(
+        ).order_by(
+            '-proposer_scrap_proposal__created_at',
         )
         serializer = ProposalListSerializer(proposals, many=True)
         return serializer.data
@@ -113,6 +115,8 @@ class FounderScrapProposalService:
             eupmyundong=eupmyundong,
         ).with_analytics(
         ).with_user(
+        ).order_by(
+            '-founder_scrap_proposal__created_at',
         )
         serializer = ProposalListSerializer(proposals, many=True)
         return serializer.data
