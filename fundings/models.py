@@ -22,6 +22,10 @@ class Funding(models.Model):
         on_delete=models.PROTECT,
         related_name="funding",
     )
+    business_name = models.CharField(
+        max_length=20,
+        help_text='상호명',
+    )
     title = models.CharField(
         max_length=50,
         help_text='프로젝트 제목',
