@@ -1,10 +1,10 @@
-from typing import Literal
 from django.http import HttpRequest
 from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from utils.choices import ProfileChoices
 from utils.decorators import validate_path_choices
 from .serializers import ProposalIdSerializer
 from .services import ProposerLikeProposalService, ProposerScrapProposalService, FounderScrapProposalService
@@ -35,11 +35,11 @@ class ProposerLike(APIView):
                 status=status.HTTP_200_OK,
             )
 
-@method_decorator(validate_path_choices(profile=('proposer', 'founder')), name='dispatch')
+@method_decorator(validate_path_choices(profile=ProfileChoices.values), name='dispatch')
 class ProfileScrap(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request:HttpRequest, profile:Literal['proposer','founder'], format=None):
+    def post(self, request:HttpRequest, profile, format=None):
         serializer = ProposalIdSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -48,9 +48,9 @@ class ProfileScrap(APIView):
             )
         proposal_id = serializer.validated_data['proposal_id']
 
-        if profile == 'proposer':
+        if profile == ProfileChoices.proposer.value:
             service = ProposerScrapProposalService(request)
-        elif profile == 'founder':
+        elif profile == ProfileChoices.founder.value:
             service = FounderScrapProposalService(request)
         is_created = service.post(proposal_id)
 
@@ -65,14 +65,14 @@ class ProfileScrap(APIView):
                 status=status.HTTP_200_OK,
             )
 
-    def get(self, request:HttpRequest, profile:Literal['proposer','founder'], format=None):
+    def get(self, request:HttpRequest, profile, format=None):
         sido = request.query_params.get('sido')
         sigungu = request.query_params.get('sigungu')
         eupmyundong = request.query_params.get('eupmyundong')
 
-        if profile == 'proposer':
+        if profile == ProfileChoices.proposer.value:
             service = ProposerScrapProposalService(request)
-        elif profile == 'founder':
+        elif profile == ProfileChoices.founder.value:
             service = FounderScrapProposalService(request)
         data = service.get(sido, sigungu, eupmyundong)
 
