@@ -18,6 +18,9 @@ DEBUG = env('DEBUG')
 NCLOUD_CLIENT_ID = env('NCLOUD_CLIENT_ID')
 NCLOUD_CLIENT_SECRET = env('NCLOUD_CLIENT_SECRET')
 
+TOSS_SECRET_KEY = os.getenv("TOSS_SECRET_KEY")
+TOSS_API_BASE   = os.getenv("TOSS_API_BASE", "https://api.tosspayments.com")
+
 
 # Application definition
 

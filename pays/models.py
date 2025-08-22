@@ -1,4 +1,6 @@
-from django.core.validators import MinLengthValidator
+from django.core.validators import MinLengthValidator, RegexValidator
+from datetime import timedelta
+from django.utils import timezone
 from django.db import models
 from utils.choices import (
     PaymentTypeChoices,
@@ -7,7 +9,12 @@ from utils.choices import (
     CashReceiptTypeChoices,
     CashReceiptTransactionTypeChoices,
     CashReceiptIssueStatusChoices,
+    OrderStatusChoices,
 )
+
+# expires_at에 lambda 사용 금지(마이그레이션 직렬화 문제)
+def default_expires_at():
+    return timezone.now() + timedelta(minutes=15)
 
 class Payment(models.Model):
     """
@@ -15,6 +22,14 @@ class Payment(models.Model):
     - 결제/정산 관련 원본 값은 가급적 JSON 필드에 그대로 저장(포렌식/CS 대응)
     - 취소는 OneToOne Cancel로 연결(정책상 전액취소만 쓰더라도 스키마는 일반형 유지)
     """
+    order = models.OneToOneField(
+        "pays.Order", 
+        on_delete=models.PROTECT, 
+        related_name="payment", 
+        null=True, 
+        blank=True
+    )
+
     payment_key = models.CharField(
         max_length=200,
         primary_key=True,
@@ -175,8 +190,7 @@ class Payment(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['funding', 'user'],
-                name='unique_funding_user',
+                fields=['funding', 'user'], name='unique_funding_user',
             )
         ]
 
@@ -279,3 +293,78 @@ class Cancel(models.Model):
 
     def __str__(self):
         return f"Cancel {self.payment.order_id} ({self.cancel_amount})"
+    
+
+class Order(models.Model):
+    order_id = models.CharField(
+        max_length=64,
+        validators=[MinLengthValidator(6)],
+        unique=True,
+        db_index=True,
+    )
+    funding  = models.ForeignKey(
+        "fundings.Funding", 
+        on_delete=models.PROTECT, 
+        related_name="order_drafts"
+        )
+    user     = models.ForeignKey(
+        "accounts.Proposer", 
+        on_delete=models.CASCADE, 
+        related_name="order_drafts"
+        )
+
+    # 클라 선택 스냅샷 (MVP는 JSON)
+    items_json       = models.JSONField(
+        default=list
+        )   # [{reward_id, title, unit_amount, quantity, line_total}]
+    level_reward_ids = models.JSONField(
+        default=list
+        )   # ["nanoid", ...]
+    donation_qty     = models.PositiveIntegerField(
+        default=0
+        )
+
+    # 서버 계산 금액(권위값)
+    items_amount     = models.PositiveIntegerField()
+    discount_amount  = models.PositiveIntegerField(
+        default=0
+        )
+    donation_amount  = models.PositiveIntegerField(
+        default=0
+        )
+    amount           = models.PositiveIntegerField()    # = items_amount + donation_amount - discount_amount (>=0)
+    currency         = models.CharField(
+        max_length=3, 
+        default="KRW"
+        )
+
+    # 위젯 리다이렉트용 URL & 메타
+    method           = models.CharField(
+        max_length=20, 
+        null=True, 
+        blank=True
+        )
+    success_url      = models.URLField(
+        null=True, 
+        blank=True
+        )
+    fail_url         = models.URLField(
+        null=True, 
+        blank=True
+        )
+
+    # 흐름 관리
+    status           = models.CharField(
+        max_length=10, 
+        choices=OrderStatusChoices.choices, 
+        default=OrderStatusChoices.PENDING
+        )
+    created_at       = models.DateTimeField(
+        auto_now_add=True
+        )
+    expires_at = models.DateTimeField(
+        default=default_expires_at
+    )
+
+    def __str__(self):
+        return f"Draft {self.order_id} ({self.amount} KRW)"

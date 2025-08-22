@@ -8,6 +8,13 @@ class ExampleChoices(IntegerChoices):
     TWO   = 2, '이'
     THREE = 3, '삼'
 
+class OrderStatusChoices(TextChoices):
+    PENDING   = "PENDING", "대기"
+    CONFIRMED = "CONFIRMED", "승인완료"
+    EXPIRED   = "EXPIRED", "만료"
+    CANCELED  = "CANCELED", "취소"
+    
+
 class ProfileChoices(TextChoices):
     proposer = 'proposer', '지역주민'
     founder  = 'founder',  '창업자'
