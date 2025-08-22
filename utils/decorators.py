@@ -2,6 +2,7 @@ from functools import wraps
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
+from utils.choices import ProfileChoices
 
 def example(func):
     """
@@ -95,5 +96,21 @@ def validate_path_choices(**path_variables):
                 )
 
             return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+def require_profile(profile:ProfileChoices):
+    """
+    Service에서 사용해 주세요.
+    """
+    def decorator(service_func):
+        @wraps(service_func)
+        def wrapper(self, *args, **kwargs):
+            if getattr(self.request.user, profile.value, None) is None:
+                return Response(
+                    { "detail": f"{profile.label} 프로필을 생성해 주세요." }, 
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return service_func(self, *args, **kwargs)
         return wrapper
     return decorator
