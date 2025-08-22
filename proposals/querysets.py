@@ -14,6 +14,9 @@ class ProposalQuerySet(models.QuerySet):
         )
 
     def filter_address(self, sido, sigungu, eupmyundong):
+        if not (sido and sigungu and eupmyundong):
+            return self
+
         return self.filter(
             address__sido=sido,
             address__sigungu=sigungu,
