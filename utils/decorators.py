@@ -96,11 +96,11 @@ def validate_path_choices(**path_variables):
         def wrapper(request, *args, **kwargs):
             errors = dict()
 
-            for var_name, choices in path_variables.items():
+            for var_name, values in path_variables.items():
                 if var_name not in kwargs:
                     errors[var_name] = "This path variable is required."
-                elif kwargs[var_name] not in choices:
-                    errors[var_name] = f"Ensure this value has one of these: {', '.join(str(choice) for choice in choices)}"
+                elif kwargs[var_name] not in values:
+                    errors[var_name] = f"Ensure this value has one of these: {', '.join(str(value) for value in values)}"
 
             if errors:
                 return Response(
