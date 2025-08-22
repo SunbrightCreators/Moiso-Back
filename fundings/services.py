@@ -25,7 +25,7 @@ class ProposerLikeFundingService:
 
         obj, created = ProposerLikeFunding.objects.get_or_create(
             user=self.request.user.proposer,
-            funding=funding_id,
+            funding=funding,
         )
         if created:
             return True
@@ -53,7 +53,7 @@ class ProposerScrapFundingService:
 
         obj, created = ProposerScrapFunding.objects.get_or_create(
             user=self.request.user.proposer,
-            funding=funding_id,
+            funding=funding,
         )
         if created:
             return True
@@ -95,7 +95,7 @@ class FounderScrapFundingService:
 
         obj, created = FounderScrapFunding.objects.get_or_create(
             user=self.request.user.founder,
-            funding=funding_id,
+            funding=funding,
         )
         if created:
             return True

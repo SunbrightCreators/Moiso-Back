@@ -33,7 +33,6 @@ class FundingListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Funding
         fields = '__all__'
-        read_only_fields = '__all__'
 
     def get_expected_opening_date(self, obj):
         dates = obj.expected_opening_date.split('-')
