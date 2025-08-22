@@ -1,5 +1,6 @@
 from django.http import HttpRequest
-from utils.decorators import validate_data, validate_permission, validate_unique
+from utils.choices import ProfileChoices
+from utils.decorators import require_profile
 from .models import Funding, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding
 from .serializers import FundingListSerializer
 
@@ -7,6 +8,7 @@ class ProposerLikeFundingService:
     def __init__(self, request:HttpRequest):
         self.request = request
 
+    @require_profile(ProfileChoices.proposer)
     def post(self, funding_id:int) -> bool:
         '''
         Args:
@@ -30,6 +32,7 @@ class ProposerScrapFundingService:
     def __init__(self, request:HttpRequest):
         self.request = request
 
+    @require_profile(ProfileChoices.proposer)
     def post(self, funding_id:int) -> bool:
         '''
         Args:
@@ -49,6 +52,7 @@ class ProposerScrapFundingService:
             obj.delete()
             return False
 
+    @require_profile(ProfileChoices.proposer)
     def get(self, sido:str|None=None, sigungu:str|None=None, eupmyundong:str|None=None):
         fundings = Funding.objects.filter(
             proposer_scrap_funding__user=self.request.user.proposer,
@@ -66,6 +70,7 @@ class FounderScrapFundingService:
     def __init__(self, request:HttpRequest):
         self.request = request
 
+    @require_profile(ProfileChoices.founder)
     def post(self, funding_id:int) -> bool:
         '''
         Args:
@@ -85,6 +90,7 @@ class FounderScrapFundingService:
             obj.delete()
             return False
 
+    @require_profile(ProfileChoices.founder)
     def get(self, sido:str|None=None, sigungu:str|None=None, eupmyundong:str|None=None):
         fundings = Funding.objects.filter(
             founder_scrap_funding__user=self.request.user.founder,
