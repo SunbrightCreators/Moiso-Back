@@ -25,7 +25,6 @@ class ProposalListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proposal
         fields = '__all__'
-        read_only_fields = '__all__'
 
     def get_image(self, obj):
         images = filter(None, [obj.image1, obj.image2, obj.image3])
