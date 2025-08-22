@@ -15,7 +15,10 @@ def example(func):
     return wrapper
 
 def validate_data(func):
-    """클라이언트가 전송한 데이터가 유효한지 검증합니다."""
+    """
+    클라이언트가 전송한 데이터가 유효한지 검증합니다.
+    Service에서 사용해 주세요.
+    """
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.serializer.is_valid():
@@ -27,7 +30,10 @@ def validate_data(func):
     return wrapper
 
 def validate_permission(func):
-    """클라이언트가 해당 인스턴스에 대하여 요청을 수행할 권한을 갖고 있는지 검증합니다."""
+    """
+    클라이언트가 해당 인스턴스에 대하여 요청을 수행할 권한을 갖고 있는지 검증합니다.
+    Service에서 사용해 주세요.
+    """
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.instance.user != self.request.user:
@@ -39,7 +45,10 @@ def validate_permission(func):
     return wrapper
 
 def validate_unique(func):
-    """클라이언트의 요청이 UNIQUE 제약조건을 준수하는지 검증합니다."""
+    """
+    클라이언트의 요청이 UNIQUE 제약조건을 준수하는지 검증합니다.
+    Service에서 사용해 주세요.
+    """
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         try:
@@ -53,7 +62,10 @@ def validate_unique(func):
     return wrapper
 
 def require_query_params(*required_query_params:str):
-    """클라이언트가 필수 쿼리 파라미터를 포함하여 요청했는지 확인합니다."""
+    """
+    클라이언트가 필수 쿼리 파라미터를 포함하여 요청했는지 확인합니다.
+    View에서 사용해 주세요.
+    """
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
@@ -75,8 +87,9 @@ def require_query_params(*required_query_params:str):
 
 def validate_path_choices(**path_variables):
     """
+    View에서 사용해 주세요.
     Examples:
-        validate_path_choices(profile=('proposer', 'founder'))
+        validate_path_choices(profile=ProfileChoices.values)
     """
     def decorator(view_func):
         @wraps(view_func)
