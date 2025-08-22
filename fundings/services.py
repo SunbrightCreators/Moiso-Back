@@ -1,4 +1,5 @@
 from django.http import HttpRequest
+from rest_framework.exceptions import PermissionDenied
 from utils.choices import ProfileChoices
 from utils.decorators import require_profile
 from .models import Funding, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding
@@ -18,6 +19,10 @@ class ProposerLikeFundingService:
                 - `True`: 좋아요 추가
                 - `False`: 좋아요 삭제
         '''
+        funding = Funding.objects.get(id=funding_id)
+        if funding.user.user == self.request.user:
+            raise PermissionDenied('자신의 펀딩을 좋아할 수 없어요.')
+
         obj, created = ProposerLikeFunding.objects.get_or_create(
             user=self.request.user.proposer,
             funding=funding_id,
@@ -42,6 +47,10 @@ class ProposerScrapFundingService:
                 - `True`: 스크랩 추가
                 - `False`: 스크랩 삭제
         '''
+        funding = Funding.objects.get(id=funding_id)
+        if funding.user.user == self.request.user:
+            raise PermissionDenied('자신의 펀딩을 스크랩할 수 없어요.')
+
         obj, created = ProposerScrapFunding.objects.get_or_create(
             user=self.request.user.proposer,
             funding=funding_id,
@@ -80,6 +89,10 @@ class FounderScrapFundingService:
                 - `True`: 스크랩 추가
                 - `False`: 스크랩 삭제
         '''
+        funding = Funding.objects.get(id=funding_id)
+        if funding.user.user == self.request.user:
+            raise PermissionDenied('자신의 펀딩을 스크랩할 수 없어요.')
+
         obj, created = FounderScrapFunding.objects.get_or_create(
             user=self.request.user.founder,
             funding=funding_id,
