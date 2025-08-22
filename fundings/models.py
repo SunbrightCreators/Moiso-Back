@@ -101,6 +101,8 @@ class Funding(models.Model):
     )
     founder_image = models.ImageField(
         upload_to="funding/founder_image",
+        null=True,
+        blank=True,
     )
     bank_category = models.CharField(
         max_length=10,
