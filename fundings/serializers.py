@@ -40,7 +40,7 @@ class FundingListSerializer(serializers.ModelSerializer):
 
     def get_expected_opening_date(self, obj):
         dates = obj.expected_opening_date.split('-')
-        return f"{dates[0]}년 {dates[1]}월"
+        return f'{dates[0]}년 {dates[1]}월'
 
     def get_radius(self, obj):
         return obj.get_radius_display()
