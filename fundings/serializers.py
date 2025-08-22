@@ -2,7 +2,6 @@ import math
 from datetime import datetime
 from django.utils import timezone
 from rest_framework import serializers
-from utils.serializer_fields import HumanizedDateTimeField
 from .models import Funding
 
 class FundingIdSerializer(serializers.Serializer):
@@ -27,13 +26,13 @@ class FundingListSerializer(serializers.ModelSerializer):
     days_left = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     founder = serializers.SerializerMethodField()
-    created_at = HumanizedDateTimeField()
+    schedule = serializers.SerializerMethodField()
     likes_count = serializers.IntegerField()
     scraps_count = serializers.IntegerField()
 
     class Meta:
         model = Funding
-        fields = ('id','industry','title','summary','expected_opening_date','address','radius','progress','days_left','image','founder','created_at','likes_count','scraps_count',)
+        fields = ('id','industry','title','summary','expected_opening_date','address','radius','progress','days_left','image','founder','schedule','likes_count','scraps_count',)
 
     def get_industry(self, obj):
         proposal = obj.proposal
@@ -69,4 +68,10 @@ class FundingListSerializer(serializers.ModelSerializer):
         return {
             'name': obj.founder_name,
             'image': obj.founder_image.url if obj.founder_image else None,
+        }
+
+    def get_schedule(self, obj):
+        end_date = datetime.strptime(obj.schedule['end'], '%Y-%m-%d')
+        return {
+            'end': end_date.strftime('%Y년 %m월 %d일')
         }
