@@ -25,7 +25,7 @@ class ProposerLikeProposalService:
 
         obj, created = ProposerLikeProposal.objects.get_or_create(
             user=self.request.user.proposer,
-            proposal=proposal_id,
+            proposal=proposal,
         )
         if created:
             return True
@@ -53,7 +53,7 @@ class ProposerScrapProposalService:
 
         obj, created = ProposerScrapProposal.objects.get_or_create(
             user=self.request.user.proposer,
-            proposal=proposal_id,
+            proposal=proposal,
         )
         if created:
             return True
@@ -95,7 +95,7 @@ class FounderScrapProposalService:
 
         obj, created = FounderScrapProposal.objects.get_or_create(
             user=self.request.user.founder,
-            proposal=proposal_id,
+            proposal=proposal,
         )
         if created:
             return True
