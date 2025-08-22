@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import Count
 
-class ProposalManager(models.Manager):
+class ProposalQuerySet(models.QuerySet):
     def with_user(self):
         return self.select_related(
             'user__user',
