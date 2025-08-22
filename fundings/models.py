@@ -65,8 +65,9 @@ class Funding(models.Model):
         null=True,
         blank=True,
     )
-    contact = models.CharField(
+    contact = models.URLField(
         max_length=50,
+        help_text='http://localhost:8000',
     )
     goal_amount = models.PositiveBigIntegerField()
     schedule = models.JSONField(
