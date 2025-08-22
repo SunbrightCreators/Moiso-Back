@@ -17,7 +17,7 @@ class ProposerLikeProposalService:
                 - `False`: 좋아요 삭제
         '''
         obj, created = ProposerLikeProposal.objects.get_or_create(
-            user__user=self.request.user,
+            user=self.request.user.proposer,
             proposal=proposal_id,
         )
         if created:
@@ -40,7 +40,7 @@ class ProposerScrapProposalService:
                 - `False`: 스크랩 삭제
         '''
         obj, created = ProposerScrapProposal.objects.get_or_create(
-            user__user=self.request.user,
+            user=self.request.user.proposer,
             proposal=proposal_id,
         )
         if created:
@@ -51,7 +51,7 @@ class ProposerScrapProposalService:
 
     def get(self, sido:str|None=None, sigungu:str|None=None, eupmyundong:str|None=None):
         proposals = Proposal.objects.filter(
-            proposer_scrap_proposal__user__user=self.request.user,
+            proposer_scrap_proposal__user=self.request.user.proposer,
         ).filter_address(
             sido=sido,
             sigungu=sigungu,
@@ -76,7 +76,7 @@ class FounderScrapProposalService:
                 - `False`: 스크랩 삭제
         '''
         obj, created = FounderScrapProposal.objects.get_or_create(
-            user__user=self.request.user,
+            user=self.request.user.founder,
             proposal=proposal_id,
         )
         if created:
@@ -87,7 +87,7 @@ class FounderScrapProposalService:
 
     def get(self, sido:str|None=None, sigungu:str|None=None, eupmyundong:str|None=None):
         proposals = Proposal.objects.filter(
-            founder_scrap_proposal__user__user=self.request.user,
+            founder_scrap_proposal__user=self.request.user.founder,
         ).filter_address(
             sido=sido,
             sigungu=sigungu,
