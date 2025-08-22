@@ -71,6 +71,8 @@ class ProposerScrapFundingService:
             eupmyundong=eupmyundong,
         ).with_analytics(
         ).with_proposal(
+        ).order_by(
+            '-proposer_scrap_funding__created_at',
         )
         serializer = FundingListSerializer(fundings, many=True)
         return serializer.data
@@ -113,6 +115,8 @@ class FounderScrapFundingService:
             eupmyundong=eupmyundong,
         ).with_analytics(
         ).with_proposal(
+        ).order_by(
+            '-founder_scrap_funding__created_at',
         )
         serializer = FundingListSerializer(fundings, many=True)
         return serializer.data
