@@ -19,9 +19,10 @@ class FundingIdSerializer(serializers.Serializer):
         return value
 
 class FundingListSerializer(serializers.ModelSerializer):
-    industry = serializers.CharField(source='proposal__industry')
+    industry = serializers.SerializerMethodField()
     expected_opening_date = serializers.SerializerMethodField()
     address = serializers.JSONField(source='proposal__address')
+    radius = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
     days_left = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
@@ -32,11 +33,18 @@ class FundingListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Funding
-        fields = '__all__'
+        fields = ('id','industry','title','summary','expected_opening_date','address','radius','progress','days_left','image','founder','created_at','likes_count','scraps_count',)
+
+    def get_industry(self, obj):
+        proposal = obj.proposal
+        return proposal.get_industry_display()
 
     def get_expected_opening_date(self, obj):
         dates = obj.expected_opening_date.split('-')
         return f"{dates[0]}년 {dates[1]}월"
+
+    def get_radius(self, obj):
+        return obj.get_radius_display()
 
     def get_progress(self, obj):
         goal_amount = obj.goal_amount
