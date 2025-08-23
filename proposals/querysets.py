@@ -1,6 +1,5 @@
 from django.db import models
 from django.db.models import  Count, OuterRef, Exists, BooleanField, Case, When, Value, F, Max, Q
-from django.apps import apps
 from utils.choices import IndustryChoices
 from functools import reduce
 from operator import or_
@@ -14,7 +13,8 @@ class ProposalQuerySet(models.QuerySet):
     def with_analytics(self):
         return (
             self.annotate(
-                likes_count=Count('proposer_like_proposal'),
+                # distinct=True: 여러 관계를 한 쿼리에서 annotate할 때 join 곱셈으로 카운트가 부풀 수 있어요. likes에도 넣는 게 안전합니다.
+                likes_count=Count('proposer_like_proposal', distinct=True),
                 proposer_scraps=Count('proposer_scrap_proposal', distinct=True),
                 founder_scraps=Count('founder_scrap_proposal', distinct=True),
         )

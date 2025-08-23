@@ -138,30 +138,30 @@ class ProposalDetailSerializer(ProposalMapItemSerializer):
         ) + ("has_funding",)
 
 
-        def get_user(self, obj: Proposal):
-            base = super().get_user(obj)  # name/profile_image 재사용
-            addr = obj.address or {}
-            latest_level = (
-                ProposerLevel.objects
-                .filter(
-                    user=obj.user,
-                    address__sido=addr.get("sido"),
-                    address__sigungu=addr.get("sigungu"),
-                    address__eupmyundong=addr.get("eupmyundong"),
-                )
-                .order_by("-id")
-                .values_list("level", flat=True)
-                .first()
-            ) or 0
-            base["proposer_level"] = {
-                "address": {
-                    "sido": addr.get("sido"),
-                    "sigungu": addr.get("sigungu"),
-                    "eupmyundong": addr.get("eupmyundong"),
-                },
-                "level": latest_level,
-            }
-            return base
+    def get_user(self, obj: Proposal):
+        base = super().get_user(obj)  # name/profile_image 재사용
+        addr = obj.address or {}
+        latest_level = (
+            ProposerLevel.objects
+            .filter(
+                user=obj.user,
+                address__sido=addr.get("sido"),
+                address__sigungu=addr.get("sigungu"),
+                address__eupmyundong=addr.get("eupmyundong"),
+            )
+            .order_by("-id")
+            .values_list("level", flat=True)
+            .first()
+        ) or 0
+        base["proposer_level"] = {
+            "address": {
+                "sido": addr.get("sido"),
+                "sigungu": addr.get("sigungu"),
+                "eupmyundong": addr.get("eupmyundong"),
+            },
+            "level": latest_level,
+        }
+        return base
 
 
     # --- is_* 계산 ---

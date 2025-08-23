@@ -140,7 +140,7 @@ class ProposalsZoom(APIView):
             grouped = svc.cluster_counts_eupmyundong(sido, sigungu, industry)
 
         # 중심좌표(지오코딩) + is_address 가공은 뷰에서
-        geocoder = GeocodingService()
+        geocoder = GeocodingService(request)
         prof_obj = getattr(request.user, profile, None)
         viewer_addr = (getattr(prof_obj, "address", None) or {}) if prof_obj else {}
 
