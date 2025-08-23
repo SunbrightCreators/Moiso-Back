@@ -79,3 +79,16 @@ class RecommendationAIService:
         # 코사인 유사도 계산
         similarity_scores = cosine_similarity(source_vector, all_vectors)
         return similarity_scores[0]
+
+class RecommendationCalcService:
+    def _calc_level(self):
+        pass
+
+    def _calc_likes_ratio(self):
+        pass
+
+    def _calc_business_hours(self):
+        pass
+
+    def calc_score(self):
+        pass
