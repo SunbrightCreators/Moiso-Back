@@ -17,6 +17,7 @@ from .serializers import (
     RegionClusterSerializer,
     FundingDetailProposerSerializer, 
     FundingDetailFounderSerializer,
+    FundingMyCreatedItemSerializer,
 )
 
 class ProposerLikeFundingService:
@@ -418,4 +419,34 @@ class FundingDetailService:
         raise PermissionDenied("허용되지 않은 profile 입니다. (founder|proposer)")
     
 
+class FounderMyCreatedFundingService:
+    def __init__(self, request: HttpRequest):
+        self.request = request
 
+    def _base_qs(self) -> QuerySet[Funding]:
+        founder = getattr(self.request.user, "founder", None)
+        if founder is None:
+            raise PermissionDenied("창업자 프로필이 필요해요.")
+        qs = Funding.objects.filter(user=founder).only("id", "title", "schedule", "status")
+        return qs
+
+    def _order_latest(self, qs: QuerySet[Funding]) -> QuerySet[Funding]:
+        # 가능하면 제안글 생성일 기준 최신, 없으면 id 기반
+        try:
+            return qs.order_by("-proposal__created_at", "-id")
+        except FieldError:
+            return qs.order_by("-id")
+
+    @require_profile(ProfileChoices.founder)
+    def get(self) -> dict:
+        qs = self._base_qs()
+
+        in_progress_qs = self._order_latest(qs.filter(status=FundingStatusChoices.IN_PROGRESS))
+        succeeded_qs   = self._order_latest(qs.filter(status=FundingStatusChoices.SUCCEEDED))
+        failed_qs      = self._order_latest(qs.filter(status=FundingStatusChoices.FAILED))
+
+        return {
+            "in_progress": FundingMyCreatedItemSerializer(in_progress_qs, many=True).data,
+            "succeeded":   FundingMyCreatedItemSerializer(succeeded_qs, many=True).data,
+            "failed":      FundingMyCreatedItemSerializer(failed_qs, many=True).data,
+        }

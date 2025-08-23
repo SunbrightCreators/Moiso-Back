@@ -297,3 +297,21 @@ class FundingDetailFounderSerializer(FundingDetailBaseSerializer):
 
     def get_likes_analysis(self, obj):
         return self.context.get("likes_analysis")
+    
+class FundingMyCreatedItemSerializer(serializers.ModelSerializer):
+    schedule = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Funding
+        fields = ("id", "title", "schedule")
+
+    def get_schedule(self, obj):
+        # "2025-08-24" -> "2025.08.24."
+        end = obj.schedule.get("end")
+        if not end:
+            return {"end": None}
+        try:
+            end_dt = datetime.strptime(end, "%Y-%m-%d")
+            return {"end": end_dt.strftime("%Y.%m.%d.")}
+        except Exception:
+            return {"end": end}  # 실패 시 원문 반환

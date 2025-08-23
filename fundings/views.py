@@ -15,7 +15,8 @@ from .services import (
     ProposerScrapFundingService, 
     FounderScrapFundingService, 
     FundingMapService, 
-    FundingDetailService
+    FundingDetailService,
+     FounderMyCreatedFundingService
 )
 
 class ProposerLike(APIView):
@@ -122,3 +123,15 @@ class FundingDetailView(APIView):
         svc = FundingDetailService(request)
         data = svc.get(funding_id, profile)
         return Response(data, status=status.HTTP_200_OK)
+    
+class FounderMyCreatedView(APIView):
+    """
+    GET /fundings/founder/my-created
+    현재 로그인한 Founder가 작성한 펀딩을 상태별(진행/성공/실패) 최신순으로 반환
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest, *args, **kwargs):
+        svc = FounderMyCreatedFundingService(request)
+        data = svc.get()
+        return Response(data, status=200)
