@@ -29,6 +29,8 @@ class FundingListSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
     likes_count = serializers.IntegerField()
     scraps_count = serializers.IntegerField()
+    is_scrapped = serializers.BooleanField()
+    is_liked = serializers.BooleanField()
 
     class Meta:
         model = Funding
