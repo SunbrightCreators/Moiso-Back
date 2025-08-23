@@ -1,7 +1,9 @@
+from typing import List, Dict, Optional
 from django.http import HttpRequest
 from rest_framework.exceptions import PermissionDenied
-from utils.choices import ProfileChoices
+from utils.choices import ProfileChoices, IndustryChoices
 from utils.decorators import require_profile
+from django.db.models import Count
 from .models import Proposal, ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
 from .serializers import ProposalListSerializer
 
@@ -120,3 +122,49 @@ class FounderScrapProposalService:
         )
         serializer = ProposalListSerializer(proposals, many=True)
         return serializer.data
+    
+
+class ProposalMapService:
+    """지도 조회용 DB 쿼리 (응답/지오코딩/is_address 가공은 View에서)"""
+    def __init__(self, request: HttpRequest, profile: str):
+        self.request = request
+        self.profile = (profile or "").lower()
+
+    def _group_counts(self, base_qs, group: str, industry: Optional[str]) -> List[Dict]:
+        # 펀딩 없는 것만
+        base = base_qs.filter(funding__isnull=True)
+
+        # industry 유효성 + 필터 (None이면 통과)
+        if industry:
+            valid = {c for c, _ in IndustryChoices.choices}
+            if industry not in valid:
+                base = base.none()
+            else:
+                base = base.filter(industry=industry)
+
+        base = base.exclude(**{f"{group}__isnull": True}).exclude(**{group: ""})
+
+        rows = (
+            base.values(group)
+                .annotate(number=Count("id"))
+                .order_by(group)
+        )
+        return [{"address": r[group], "number": r["number"]} for r in rows]
+
+    def cluster_counts_sido(self, industry: Optional[str]) -> List[Dict]:
+        """도(시도) 레벨 클러스터"""
+        group = "address__sido"
+        base = Proposal.objects.all()
+        return self._group_counts(base, group, industry)
+
+    def cluster_counts_sigungu(self, sido: str, industry: Optional[str]) -> List[Dict]:
+        """구(시군구) 레벨 클러스터"""
+        group = "address__sigungu"
+        base = Proposal.objects.filter(address__sido=sido)
+        return self._group_counts(base, group, industry)
+
+    def cluster_counts_eupmyundong(self, sido: str, sigungu: str, industry: Optional[str]) -> List[Dict]:
+        """동(읍면동) 레벨 클러스터"""
+        group = "address__eupmyundong"
+        base = Proposal.objects.filter(address__sido=sido, address__sigungu=sigungu)
+        return self._group_counts(base, group, industry)
