@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'maps.apps.MapsConfig',
     'proposals.apps.ProposalsConfig',
     'fundings.apps.FundingsConfig',
+    'recommendations.apps.RecommendationsConfig',
     'pays.apps.PaysConfig',
     'notifications.apps.NotificationsConfig',
 ]
