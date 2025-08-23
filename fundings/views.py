@@ -5,10 +5,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from utils.decorators import validate_path_choices, method_decorator
-
-from utils.choices import ProfileChoices, ZoomChoices, FundingStatusChoices, IndustryChoices
 from utils.decorators import validate_path_choices
+
+from utils.choices import ProfileChoices, ZoomChoices, FundingStatusChoices
 from maps.services import GeocodingService
 from .serializers import FundingIdSerializer, FundingMapSerializer
 from .models import Funding
@@ -18,7 +17,9 @@ from .services import (
     FounderScrapFundingService, 
     FundingMapService, 
     FundingDetailService,
-    FounderMyCreatedFundingService
+    FounderMyCreatedFundingService,
+    ProposerMyPaidFundingService,
+    ProposerMyRewardsService
 )
 
 class ProposerLike(APIView):
@@ -99,34 +100,37 @@ class FundingMapView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request: HttpRequest, profile: str, zoom: int, *args, **kwargs):
-        
+        # --- 입력 ---
         sido        = request.query_params.get("sido")
         sigungu     = request.query_params.get("sigungu")
         eupmyundong = request.query_params.get("eupmyundong")
         industry    = request.query_params.get("industry")
         order       = request.query_params.get("order", "최신순")
 
-        # industry 유효성(클러스터/목록 공통)
-        if industry:
-            valid = {c for c, _ in IndustryChoices.choices}
-            if industry not in valid:
-                return Response({"detail": "Invalid industry choice."}, status=status.HTTP_400_BAD_REQUEST)
-
         # --- 검증 ---
         if zoom not in ZoomChoices.values:
-            return Response({"detail": f"Invalid zoom. Use one of: {ZoomChoices.values}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": f"Invalid zoom. Use one of: {ZoomChoices.values}"}, 
+                status=status.HTTP_400_BAD_REQUEST)
         if zoom == ZoomChoices.M2000 and not sido:
-            return Response({"detail": "구 지도(2km)에는 sido가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "구 지도(2km)에는 sido가 필요합니다."}, 
+                status=status.HTTP_400_BAD_REQUEST)
         if zoom == ZoomChoices.M500 and not (sido and sigungu):
-            return Response({"detail": "동 지도(500m)에는 sido와 sigungu가 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "동 지도(500m)에는 sido와 sigungu가 필요합니다."}, 
+                status=status.HTTP_400_BAD_REQUEST)
         if zoom == ZoomChoices.M0 and not (sido and sigungu and eupmyundong):
-            return Response({"detail": "sido, sigungu, eupmyundong 쿼리 파라미터가 모두 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # --- 서비스 & 지오코더 ---
-        svc = FundingMapService(request, profile)
+            return Response(
+                {"detail": "sido, sigungu, eupmyundong 쿼리 파라미터가 모두 필요합니다."}, 
+                status=status.HTTP_400_BAD_REQUEST)
+        
+        # 중심좌표(지오코딩)
         geocoder = GeocodingService(request)
-
-        # --- 동 이하(0): 상세 리스트 ---
+        # 서비스 호출
+        svc = FundingMapService(request)
+        
+        # 동 이하(0): 상세 리스트
         if zoom == ZoomChoices.M0:
             try:
                 qs = (
@@ -150,13 +154,15 @@ class FundingMapView(APIView):
             # proposer: is_liked/is_scrapped, founder: is_scrapped만 (serializer에서 제거)
             return Response(data, status=status.HTTP_200_OK)
 
-        # --- 클러스터: 주소/개수 → 뷰에서 지오코딩 ---
+        # 클러스터(시도/시군구/읍면동)
         if zoom == ZoomChoices.M10000:
             grouped = svc.cluster_counts_sido(industry)
         elif zoom == ZoomChoices.M2000:
             grouped = svc.cluster_counts_sigungu(sido, industry)
         else:  # M500
             grouped = svc.cluster_counts_eupmyundong(sido, sigungu, industry)
+        
+
 
         result = []
         for idx, row in enumerate(grouped, start=1):
@@ -168,6 +174,7 @@ class FundingMapView(APIView):
             else:
                 full_addr = f"{sido} {sigungu} {addr_text}"
 
+            # position 반환
             try:
                 pos = geocoder.get_address_to_position(query_address=full_addr)
             except Exception:
@@ -181,14 +188,12 @@ class FundingMapView(APIView):
             })
         return Response(result, status=status.HTTP_200_OK)
 
-
-
     
 @method_decorator(validate_path_choices(profile=ProfileChoices.values), name='dispatch')
 class FundingDetailView(APIView):
-    """
-    GET /fundings/{funding_id}/{profile}
-    """
+    authentication_classes = [JWTAuthentication] 
+    permission_classes = [IsAuthenticated]        
+
     def get(self, request: HttpRequest, funding_id: int, profile: str, *args, **kwargs):
         svc = FundingDetailService(request)
         data = svc.get(funding_id, profile)
@@ -205,3 +210,24 @@ class FounderMyCreatedView(APIView):
         svc = FounderMyCreatedFundingService(request)
         data = svc.get()
         return Response(data, status=200)
+    
+
+class ProposerMyPaidView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest, *args, **kwargs):
+        svc = ProposerMyPaidFundingService(request)
+        data = svc.get()
+        return Response(data, status=status.HTTP_200_OK)
+    
+class ProposerMyRewardsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest, *args, **kwargs):
+        category = request.query_params.get("category")  # LEVEL | GIFT | COUPON | None
+        svc = ProposerMyRewardsService(request)
+        try:
+            data = svc.get(category)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data, status=status.HTTP_200_OK)

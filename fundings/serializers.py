@@ -3,6 +3,7 @@ from datetime import datetime
 from django.utils import timezone
 from rest_framework import serializers
 from .models import Funding, Reward
+from utils.serializer_fields import HumanizedDateTimeField
 
 class FundingIdSerializer(serializers.Serializer):
     funding_id = serializers.IntegerField(
@@ -16,6 +17,7 @@ class FundingIdSerializer(serializers.Serializer):
         if not Funding.objects.filter(id=value).exists():
             raise serializers.ValidationError('존재하지 않는 펀딩이에요.')
         return value
+    
 
 class FundingListSerializer(serializers.ModelSerializer):
     industry = serializers.SerializerMethodField()
@@ -30,108 +32,87 @@ class FundingListSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField()
     scraps_count = serializers.IntegerField()
 
-    is_liked   = serializers.SerializerMethodField()
-    is_scrapped = serializers.SerializerMethodField()
+    is_scrapped = serializers.BooleanField(read_only=True, default=False)
+    is_liked = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = Funding
         fields = (
             'id', 'industry', 'title', 'summary', 'expected_opening_date',
             'address', 'radius', 'progress', 'days_left', 'image', 'founder',
-            'schedule', 'likes_count', 'scraps_count', 'is_scrapped','is_liked'
+            'schedule', 'likes_count', 'scraps_count', 'is_liked','is_scrapped'
         )
-
     def get_industry(self, obj):
-        proposal = obj.proposal
-        return proposal.get_industry_display()
+        return obj.proposal.get_industry_display()
 
     def get_expected_opening_date(self, obj):
-        dates = obj.expected_opening_date.split('-')
-        return f'{dates[0]}년 {dates[1]}월'
+        # 예: "2025-10" -> "2025년 10월"
+        raw = getattr(obj, "expected_opening_date", "") or ""
+        try:
+            y, m = raw.split("-")[:2]
+            return f"{int(y)}년 {int(m)}월"
+        except Exception:
+            return raw or None
 
     def get_radius(self, obj):
         return obj.get_radius_display()
 
     def get_progress(self, obj):
-        goal_amount = obj.goal_amount
-        amount = obj.amount or 0
-        rate = math.trunc((amount / goal_amount) * 100)
-        return {
-            'rate': rate,
-            'amount': amount,
-        }
+        goal = obj.goal_amount or 0
+        amount = obj.amount or 0  # with_analytics에서 annotate된 금액
+        rate = math.trunc((amount / goal) * 100) if goal else 0
+        return {"rate": rate, "amount": amount}
 
     def get_days_left(self, obj):
-        end_date = datetime.strptime(obj.schedule['end'], '%Y-%m-%d').date()
-        today = timezone.localdate()
-        diff = end_date - today
-        return diff.days
+        try:
+            end = obj.schedule.get("end")  # "YYYY-MM-DD"
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+            today = timezone.localdate()
+            return (end_date - today).days
+        except Exception:
+            return None
 
     def get_image(self, obj):
-        images = filter(None, [obj.image1, obj.image2, obj.image3])
-        return [image.url for image in images]
+        images = []
+        for k in ("image1", "image2", "image3"):
+            f = getattr(obj, k, None)
+            if f:
+                try:
+                    images.append(f.url)
+                except Exception:
+                    pass
+        return images
 
     def get_founder(self, obj):
-        return {
-            'name': obj.founder_name,
-            'image': obj.founder_image.url if obj.founder_image else None,
-        }
+        # 상세에서 super().get_founder(obj)로 재사용됨
+        img = None
+        if getattr(obj, "founder_image", None):
+            try:
+                img = obj.founder_image.url
+            except Exception:
+                img = None
+        return {"name": obj.founder_name, "image": img}
 
     def get_schedule(self, obj):
-        end_date = datetime.strptime(obj.schedule['end'], '%Y-%m-%d')
-        return {
-            'end': end_date.strftime('%Y년 %m월 %d일')
-        }
-    def get_is_liked(self, obj):
-        # 1) annotate 우선
-        val = getattr(obj, "is_liked", None)
-        if val is not None:
-            return bool(val)
-        # 2) 폴백
-        request = self.context.get("request")
-        profile = (self.context.get("profile") or "").lower()
-        if not request or not getattr(request.user, "is_authenticated", False):
-            return False
-        if profile != "proposer":
-            return False
-        from .models import ProposerLikeFunding
-        return ProposerLikeFunding.objects.filter(
-            funding=obj, user=request.user.proposer
-        ).exists()
-
-    def get_is_scrapped(self, obj):
-        val = getattr(obj, "is_scrapped", None)
-        if val is not None:
-            return bool(val)
-        request = self.context.get("request")
-        profile = (self.context.get("profile") or "").lower()
-        if not request or not getattr(request.user, "is_authenticated", False):
-            return False
-        if profile == "proposer":
-            from .models import ProposerScrapFunding
-            return ProposerScrapFunding.objects.filter(
-                funding=obj, user=request.user.proposer
-            ).exists()
-        if profile == "founder":
-            from .models import FounderScrapFunding
-            return FounderScrapFunding.objects.filter(
-                funding=obj, user=request.user.founder
-            ).exists()
-        return False
-    
-
-class FundingIdSerializer(serializers.Serializer):
-    funding_id = serializers.IntegerField(
-        write_only=True,
-        required=True,
-        allow_null=False,
-        min_value=1,
-    )
+        # 리스트에서는 'end'만 "YYYY년 MM월 DD일" 포맷 (상세는 start/end 모두 '.' 포맷)
+        try:
+            end = obj.schedule.get("end")
+            end_dt = datetime.strptime(end, "%Y-%m-%d")
+            return {"end": end_dt.strftime("%Y년 %m월 %d일")}
+        except Exception:
+            return {"end": obj.schedule.get("end")}
 
     def validate_funding_id(self, value):
         if not Funding.objects.filter(id=value).exists():
             raise serializers.ValidationError('존재하지 않는 펀딩이에요.')
         return value
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        profile = (self.context.get("profile") or "").lower()
+        if profile == "founder":
+            data.pop("is_liked", None)
+        return data
 
 
 #  지도 상세 리스트용(동 이하): position 추가
@@ -160,14 +141,6 @@ class FundingMapSerializer(FundingListSerializer):
         return data
 
 
-#집계 응답
-class RegionClusterSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    address = serializers.CharField()
-    position = serializers.DictField()   # {"latitude": float, "longitude": float}
-    number = serializers.IntegerField()
-
-
 class RewardItemSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
 
@@ -177,27 +150,7 @@ class RewardItemSerializer(serializers.ModelSerializer):
 
     def get_category(self, obj):
         return obj.get_category_display()
-
-
-class _ProposalUserMiniSerializer(serializers.Serializer):
-    name = serializers.CharField()
-    profile_image = serializers.CharField(allow_null=True)
-
-
-class _ProposalBriefSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    industry = serializers.CharField()
-    title = serializers.CharField()
-    content = serializers.CharField()
-    business_hours = serializers.DictField()
-    address = serializers.DictField()
-    radius = serializers.CharField()
-    image = serializers.ListField(child=serializers.CharField())
-    user = _ProposalUserMiniSerializer()
-    created_at = serializers.CharField()
-    likes_count = serializers.IntegerField()
-    scraps_count = serializers.IntegerField()
-
+    
 
 class FundingDetailBaseSerializer(FundingListSerializer):
     """
@@ -226,13 +179,8 @@ class FundingDetailBaseSerializer(FundingListSerializer):
             "content", "business_hours", "reward", "contact", "policy",
             "expected_problem", "proposal",
         )
-
-    # 공통: 상세에서 schedule은 start/end 모두 '.' 포맷
-    def get_schedule(self, obj):
-        s = datetime.strptime(obj.schedule['start'], '%Y-%m-%d').strftime('%Y.%m.%d.')
-        e = datetime.strptime(obj.schedule['end'],   '%Y-%m-%d').strftime('%Y.%m.%d.')
-        return {"start": s, "end": e}
-
+    
+    # 상세는 제안글의 좌표 사용
     def get_position(self, obj):
         pos = getattr(obj.proposal, "position", None)
         if isinstance(pos, dict):
@@ -246,41 +194,63 @@ class FundingDetailBaseSerializer(FundingListSerializer):
 
     def get_reward(self, obj):
         return RewardItemSerializer(obj.reward.all().only("id", "category", "title", "amount"), many=True).data
+    
+    # 공통: 상세에서 schedule은 start/end 모두 '.' 포맷
+    def get_schedule(self, obj):
+        s = datetime.strptime(obj.schedule['start'], '%Y-%m-%d').strftime('%Y.%m.%d.')
+        e = datetime.strptime(obj.schedule['end'],   '%Y-%m-%d').strftime('%Y.%m.%d.')
+        return {"start": s, "end": e}
 
-    def _kr_timesince(self, dt):
-        if not dt:
-            return ""
-        delta = timezone.now() - dt
-        sec = int(delta.total_seconds())
-        if sec < 60:   return f"{sec}초 전"
-        m = sec // 60
-        if m < 60:     return f"{m}분 전"
-        h = m // 60
-        if h < 24:     return f"{h}시간 전"
-        d = h // 24
-        return f"{d}일 전"
-
-    def _mask_name(self, name: str) -> str:
-        if not name: return ""
-        return name[0] + ("*" * (len(name) - 1))
 
     def get_proposal(self, obj: Funding):
         prop = obj.proposal
 
-        # 제안글 이미지(필드명이 image1/2/3이라고 가정)
+        # 이미지
         images = []
         for key in ("image1", "image2", "image3"):
             im = getattr(prop, key, None)
             if im:
                 images.append(im.url)
 
-        user_obj = getattr(prop, "user", None)
-        user_name = getattr(user_obj, "name", None) or getattr(user_obj, "nickname", "") or ""
-        profile_image = getattr(user_obj, "profile_image", None)
-        if hasattr(profile_image, "url"):
-            profile_image = profile_image.url
+        # 제안자(user) → accounts.Proposer → accounts.User
+        proposer  = getattr(prop, "user", None)
+        core_user = getattr(proposer, "user", None)
 
-        data = {
+        raw_name = (getattr(core_user, "name", "") or getattr(core_user, "nickname", "") or "")
+        if not raw_name:
+            masked_name = ""
+        elif len(raw_name) == 1:
+            masked_name = raw_name + "*"
+        else:
+            masked_name = raw_name[0] + "**"
+
+        # 프로필 이미지(문자열/파일 모두 방어) + 절대 URL
+        profile_image = None
+        pi = getattr(core_user, "profile_image", None)
+        rel = None
+        if isinstance(pi, str) and pi:
+            rel = pi
+        elif hasattr(pi, "url"):
+            try:
+                rel = pi.url
+            except Exception:
+                rel = None
+        if rel:
+            req = self.context.get("request")
+            profile_image = rel if rel.startswith("http") or not req else req.build_absolute_uri(rel)
+
+        # 제안글 집계(제안글 좋아요/스크랩)
+        try:
+            prop_likes_count = prop.proposer_like_proposal.count()
+            prop_scraps_count = prop.proposer_scrap_proposal.count() + prop.founder_scrap_proposal.count()
+        except Exception:
+            prop_likes_count = 0
+            prop_scraps_count = 0
+
+        # created_at → "방금 전/20분 전/…"로 변환
+        humanized = HumanizedDateTimeField().to_representation(getattr(prop, "created_at", None))
+
+        return {
             "id": prop.id,
             "industry": prop.get_industry_display(),
             "title": prop.title,
@@ -289,20 +259,40 @@ class FundingDetailBaseSerializer(FundingListSerializer):
             "address": prop.address,
             "radius": getattr(prop, "get_radius_display", lambda: "")(),
             "image": images,
-            "user": {"name": self._mask_name(user_name), "profile_image": profile_image},
-            "created_at": self._kr_timesince(getattr(prop, "created_at", None)),
-            # 제안글 좋아요/스크랩 별도 집계가 없다면 펀딩의 집계값 재사용
-            "likes_count": getattr(prop, "likes_count", None) or getattr(obj, "likes_count", 0),
-            "scraps_count": getattr(prop, "scraps_count", None) or getattr(obj, "scraps_count", 0),
+            "user": {"name": masked_name, "profile_image": profile_image},  # ← 함수 쓰지 말고 인라인
+            "created_at": humanized,
+            "likes_count": prop_likes_count,    # ← 제안글 집계
+            "scraps_count": prop_scraps_count,  # ← 제안글 집계
         }
-        # 타입 검증
-        return _ProposalBriefSerializer(data).data
 
     # 상세에서는 founder 블록에 description도 포함
     def get_founder(self, obj):
         base = super().get_founder(obj)
         base["description"] = obj.founder_description
         return base
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        # business_hours 오전/오후 포맷 (제안글 상세와 동일 포맷)
+        bh = instance.business_hours or {}
+        for key in ("start", "end"):
+            val = bh.get(key)
+            if isinstance(val, str) and ":" in val:
+                try:
+                    hour, minute = map(int, val.split(":"))
+                    h12 = hour % 12 or 12
+                    ap = "오전" if hour < 12 else "오후"
+                    bh[key] = f"{ap} {h12}시"
+                except Exception:
+                    pass
+        data["business_hours"] = bh
+
+        profile = (self.context.get("profile") or "").lower()
+        if profile == "founder":
+            # 명세: founder 응답에는 is_liked 불포함
+            data.pop("is_liked", None)
+        return data
 
 
 class FundingDetailProposerSerializer(FundingDetailBaseSerializer):
@@ -358,3 +348,18 @@ class FundingMyCreatedItemSerializer(serializers.ModelSerializer):
             return {"end": end_dt.strftime("%Y.%m.%d.")}
         except Exception:
             return {"end": end}  # 실패 시 원문 반환
+        
+class ProposerFundingRewardItemSerializer(serializers.Serializer):
+    id = serializers.CharField()                 # ProposerReward.id (nanoid)
+    category = serializers.CharField()           # Reward.get_category_display()
+    business_name = serializers.CharField(allow_null=True)
+    title = serializers.CharField()
+    content = serializers.CharField()
+    amount = serializers.IntegerField()
+
+class ProposerLevelRewardItemSerializer(serializers.Serializer):
+    id = serializers.CharField()                 # ProposerReward.id (nanoid)
+    category = serializers.CharField()           # "레벨"
+    title = serializers.CharField()
+    content = serializers.CharField()
+    amount = serializers.IntegerField()

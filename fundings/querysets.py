@@ -67,7 +67,10 @@ class FundingQuerySet(models.QuerySet):
         p = (profile or "").lower()
         get_model = django_apps.get_model
 
-        if p == "proposer":
+        proposer = getattr(user, "proposer", None)
+        founder  = getattr(user, "founder",  None)
+
+        if p == "proposer" and proposer is not None:
             like_expr = Exists(
                 get_model("fundings", "ProposerLikeFunding").objects
                 .filter(funding=OuterRef("pk"), user=user.proposer)
@@ -76,7 +79,7 @@ class FundingQuerySet(models.QuerySet):
                 get_model("fundings", "ProposerScrapFunding").objects
                 .filter(funding=OuterRef("pk"), user=user.proposer)
             )
-        elif p == "founder":
+        elif p == "founder" and founder is not None:
             like_expr = Value(False, output_field=BooleanField())
             scrap_expr = Exists(
                 get_model("fundings", "FounderScrapFunding").objects
