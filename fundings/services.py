@@ -1,12 +1,13 @@
 from __future__ import annotations
+from typing import List, Dict, Optional
 from typing import Iterable, Tuple, Dict, Any
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Count
 from datetime import datetime
 from django.utils import timezone
 from datetime import timedelta
 from django.http import HttpRequest
 from rest_framework.exceptions import PermissionDenied
-from utils.choices import ProfileChoices, FundingStatusChoices, PaymentStatusChoices
+from utils.choices import ProfileChoices, FundingStatusChoices, PaymentStatusChoices, IndustryChoices
 from utils.decorators import require_profile
 from django.core.exceptions import FieldError, ImproperlyConfigured
 from .models import Funding, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding
@@ -195,59 +196,36 @@ class FundingMapService:
     def __init__(self, request: HttpRequest):
         self.request = request
 
-    def _base_qs(self) -> QuerySet[Funding]:
-        return (Funding.objects
-                .filter(status=FundingStatusChoices.IN_PROGRESS)
-                .with_analytics()
-                .with_proposal())
-
-    def list_in_dong(self) -> list[dict]:
-        """
-        zoom=0: 진행중 펀딩 상세 리스트(동 이하)
-        qparams: sido, sigungu, eupmyundong, industry, order
-        """
-        q = self.request.query_params
-        sido = q.get('sido')
-        sigungu = q.get('sigungu')
-        eup = q.get('eupmyundong')
-        industry = q.get('industry')
-        order = q.get('order')
-
-        qs = self._base_qs()
-
-        if sido and sigungu and eup:
-            qs = qs.filter(
-                proposal__address__sido=sido,
-                proposal__address__sigungu=sigungu,
-                proposal__address__eupmyundong=eup,
-            )
-
+    def _group_counts(self, base_qs, group: str, industry: Optional[str]) -> List[Dict]:
+        base = base_qs.filter(status=FundingStatusChoices.IN_PROGRESS)
         if industry:
-            qs = qs.filter(proposal__industry=industry)
+            valid = {c for c, _ in IndustryChoices.choices}
+            if industry not in valid:
+                base = base.none()
+            else:
+                base = base.filter(proposal__industry=industry)
+        base = base.exclude(**{f"{group}__isnull": True}).exclude(**{group: ""})
+        rows = base.values(group).annotate(number=Count("id")).order_by(group)
+        return [{"address": r[group], "number": r["number"]} for r in rows]
 
-        order_map = {
-            '인기순': ('-likes_count', '-id'),
-            '최신순': ('-id',),
-            '레벨순': ('radius', '-id'),
-        }
-        qs = qs.order_by(*order_map.get(order, ('-id',)))
+    def cluster_counts_sido(self, industry: Optional[str]) -> List[Dict]:
+        return self._group_counts(Funding.objects.all(), "proposal__address__sido", industry)
 
-        return FundingMapSerializer(qs, many=True, context={'request': self.request}).data
+    def cluster_counts_sigungu(self, sido: str, industry: Optional[str]) -> List[Dict]:
+        base = Funding.objects.filter(proposal__address__sido=sido)
+        return self._group_counts(base, "proposal__address__sigungu", industry)
 
-    def cluster(self, zoom: int) -> list[dict]:
-        """
-        zoom in: 500/2000/10000 → 집계 응답
-        """
-        qs = self._base_qs()  # select_related(proposal) 포함
-        if zoom == 10000:
-            data = _cluster(qs, level='sido')
-        elif zoom == 2000:
-            data = _cluster(qs, level='sigungu')
-        elif zoom == 500:
-            data = _cluster(qs, level='eupmyundong')
-        else:
-            raise ValueError('허용되지 않은 zoom 값')
-        return RegionClusterSerializer(data, many=True).data
+    def cluster_counts_eupmyundong(self, sido: str, sigungu: str, industry: Optional[str]) -> List[Dict]:
+        base = Funding.objects.filter(
+            proposal__address__sido=sido,
+            proposal__address__sigungu=sigungu,
+        )
+        return self._group_counts(base, "proposal__address__eupmyundong", industry)
+    
+
+
+
+    #으엥??
 
 CANCELABLE_WINDOW = timedelta(days=7) # 승인 후 7일 내 취소 가능
 

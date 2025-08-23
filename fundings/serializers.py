@@ -29,15 +29,16 @@ class FundingListSerializer(serializers.ModelSerializer):
     schedule = serializers.SerializerMethodField()
     likes_count = serializers.IntegerField()
     scraps_count = serializers.IntegerField()
-    is_scrapped = serializers.BooleanField()
-    is_liked = serializers.BooleanField()
+
+    is_liked   = serializers.SerializerMethodField()
+    is_scrapped = serializers.SerializerMethodField()
 
     class Meta:
         model = Funding
         fields = (
             'id', 'industry', 'title', 'summary', 'expected_opening_date',
             'address', 'radius', 'progress', 'days_left', 'image', 'founder',
-            'schedule', 'likes_count', 'scraps_count',
+            'schedule', 'likes_count', 'scraps_count', 'is_scrapped','is_liked'
         )
 
     def get_industry(self, obj):
@@ -81,6 +82,42 @@ class FundingListSerializer(serializers.ModelSerializer):
         return {
             'end': end_date.strftime('%Y년 %m월 %d일')
         }
+    def get_is_liked(self, obj):
+        # 1) annotate 우선
+        val = getattr(obj, "is_liked", None)
+        if val is not None:
+            return bool(val)
+        # 2) 폴백
+        request = self.context.get("request")
+        profile = (self.context.get("profile") or "").lower()
+        if not request or not getattr(request.user, "is_authenticated", False):
+            return False
+        if profile != "proposer":
+            return False
+        from .models import ProposerLikeFunding
+        return ProposerLikeFunding.objects.filter(
+            funding=obj, user=request.user.proposer
+        ).exists()
+
+    def get_is_scrapped(self, obj):
+        val = getattr(obj, "is_scrapped", None)
+        if val is not None:
+            return bool(val)
+        request = self.context.get("request")
+        profile = (self.context.get("profile") or "").lower()
+        if not request or not getattr(request.user, "is_authenticated", False):
+            return False
+        if profile == "proposer":
+            from .models import ProposerScrapFunding
+            return ProposerScrapFunding.objects.filter(
+                funding=obj, user=request.user.proposer
+            ).exists()
+        if profile == "founder":
+            from .models import FounderScrapFunding
+            return FounderScrapFunding.objects.filter(
+                funding=obj, user=request.user.founder
+            ).exists()
+        return False
     
 
 class FundingIdSerializer(serializers.Serializer):
@@ -105,18 +142,22 @@ class FundingMapSerializer(FundingListSerializer):
         fields = FundingListSerializer.Meta.fields + ('position',)
 
     def get_position(self, obj):
-        """
-        Proposal.position 이 JSON이라 가정: {"latitude": ..., "longitude": ...}
-        만약 별도 lat/lng 필드면 여기서 변경.
-        """
-        pos = getattr(obj.proposal, 'position', None)
-        if isinstance(pos, dict):
-            lat = pos.get('latitude')
-            lng = pos.get('longitude')
-            if lat is not None and lng is not None:
-                return {'latitude': float(lat), 'longitude': float(lng)}
-        # fallback: None
-        return None
+        geocoder = self.context.get("geocoder")   # ← 뷰에서 주입
+        addr = (obj.proposal.address or {})
+        full_addr = " ".join(filter(None, [addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong")]))
+        try:
+            pos = geocoder.get_address_to_position(query_address=full_addr)
+        except Exception:
+            pos = {"latitude": None, "longitude": None}
+        return {"latitude": pos.get("latitude"), "longitude": pos.get("longitude")}
+    
+    # to_representation에서 founder면 is_liked 제거 하는 처리 유지
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        profile = (self.context.get("profile") or "").lower()
+        if profile == "founder":
+            data.pop("is_liked", None) 
+        return data
 
 
 #집계 응답
