@@ -4,10 +4,19 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from utils.decorators import validate_path_choices, method_decorator
+from django.views.decorators.cache import never_cache
+
 from utils.choices import ProfileChoices
 from utils.decorators import validate_path_choices
 from .serializers import FundingIdSerializer
-from .services import ProposerLikeFundingService, ProposerScrapFundingService, FounderScrapFundingService
+from .services import (
+    ProposerLikeFundingService, 
+    ProposerScrapFundingService, 
+    FounderScrapFundingService, 
+    FundingMapService, 
+    FundingDetailService
+)
 
 class ProposerLike(APIView):
     permission_classes = [IsAuthenticated]
@@ -80,3 +89,36 @@ class ProfileScrap(APIView):
             data,
             status=status.HTTP_200_OK,
         )
+    
+@method_decorator(never_cache, name='dispatch')
+class FundingMapView(APIView):
+    """
+    GET /fundings/{zoom}?sido=&sigungu=&eupmyundong=&industry=&order=
+      - 10000: 도(시·도) 집계
+      - 2000 : 구/군 집계
+      - 500  : 동 집계
+      - 0    : 동 이하 상세 리스트 (진행중만, 쿼리 사용)
+    ※ queryset 은 with_analytics().with_proposal() 강제 (서비스 내부에서 보장)
+    """
+
+    def get(self, request: HttpRequest, zoom: int, *args, **kwargs):
+        svc = FundingMapService(request)
+        if zoom == 0:
+            data = svc.list_in_dong()
+            return Response(data, status=status.HTTP_200_OK)
+        try:
+            data = svc.cluster(zoom)
+        except ValueError:
+            return Response({'detail': '허용되지 않은 zoom 값입니다. (0|500|2000|10000)'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response(data, status=status.HTTP_200_OK)
+    
+@method_decorator(validate_path_choices(profile=ProfileChoices.values), name='dispatch')
+class FundingDetailView(APIView):
+    """
+    GET /fundings/{funding_id}/{profile}
+    """
+    def get(self, request: HttpRequest, funding_id: int, profile: str, *args, **kwargs):
+        svc = FundingDetailService(request)
+        data = svc.get(funding_id, profile)
+        return Response(data, status=status.HTTP_200_OK)
