@@ -1,4 +1,5 @@
 from typing import Literal
+import heapq
 import re
 import numpy as np
 from django.core.cache import cache
@@ -66,16 +67,21 @@ class AI:
         # 단어 벡터들의 평균을 게시물 벡터로 사용
         return np.mean(vectors, axis=0)
 
-    def calc_cosine_similarity(self, source_vector, comparison_vectors):
-        """
-        소스 벡터와 모든 게시물 벡터 간의 유사도를 계산합니다.
-        """
-        # 벡터들을 2D 배열로 변환 (scikit-learn의 입력 형식)
-        source_vector = source_vector.reshape(1, -1)
-        comparison_vectors = np.array(comparison_vectors)
-        # 코사인 유사도 계산
-        similarity_scores = cosine_similarity(source_vector, comparison_vectors)
-        return similarity_scores[0]
+    def find_top_similar(self, source_vector, items_and_vectors:list[tuple], top_k:int=3):
+        min_heap = list()
+
+        for item, vector in items_and_vectors:
+            similarity = cosine_similarity(
+                source_vector.reshape(1, -1),
+                vector.reshape(1, -1),
+            )[0][0]
+
+            if len(min_heap) < top_k:
+                heapq.heappush(min_heap, (similarity, item))
+            elif similarity > min_heap[0][0]:
+                heapq.heapreplace(min_heap, (similarity, item))
+
+        return [item for score, item in sorted(min_heap, reverse=True)]
 
 class RecommendationScrapService:
     def __init__(self, request:HttpRequest):
@@ -145,20 +151,12 @@ class RecommendationScrapService:
             posts=proposals,
         )
 
-        # 코사인 유사도 계산
-        similarity_scores = self.ai.calc_cosine_similarity(
+        # 코사인 유사도 계산 및 유사도 상위 3개 제안 구하기
+        top_recommended_proposals = self.ai.find_top_similar(
             source_vector=source_vector,
-            comparison_vectors=[vector for proposal, vector in valid_proposals_and_vectors],
+            items_and_vectors=valid_proposals_and_vectors,
         )
 
-        # 유사도 점수 기반 추천 목록 정렬
-        recommended_proposals_with_scores = sorted(
-            zip(valid_proposals_and_vectors, similarity_scores),
-            key=lambda x: x[1],
-            reverse=True,
-        )
-
-        top_recommended_proposals = [proposal for (proposal, vector), score in recommended_proposals_with_scores][:3]
         serializer = ProposalListSerializer(top_recommended_proposals, many=True)
         result = serializer.data
 
