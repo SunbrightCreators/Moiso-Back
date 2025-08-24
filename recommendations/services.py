@@ -5,7 +5,7 @@ import re
 import numpy as np
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException
 from kiwipiepy import Kiwi
@@ -91,7 +91,7 @@ class AI:
             elif similarity > min_heap[0][0]:
                 heapq.heapreplace(min_heap, (similarity, item))
 
-        return [item for score, item in sorted(min_heap, reverse=True)]
+        return [item.id for score, item in sorted(min_heap, reverse=True)]
 
 class RecommendationScrapService:
     def __init__(self, request:HttpRequest):
@@ -166,9 +166,19 @@ class RecommendationScrapService:
         )
 
         # 코사인 유사도 계산 및 유사도 상위 3개 제안 구하기
-        top_recommended_proposals = self.ai.find_top_similar(
+        top_recommended_proposal_id_list = self.ai.find_top_similar(
             source_vector=source_vector,
             items_and_vectors=valid_proposals_and_vectors,
+        )
+
+        top_recommended_proposals = Proposal.objects.filter(
+            id__in=top_recommended_proposal_id_list
+        ).annotate(
+            similarity_order=Case(*[When(id=pk, then=Value(pos)) for pos, pk in enumerate(top_recommended_proposal_id_list)])
+        ).order_by(
+            'similarity_order'
+        ).with_analytics(
+        ).with_user(
         )
 
         serializer = ProposalListSerializer(top_recommended_proposals, many=True)
