@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import List, Dict, Optional
 from collections import defaultdict
-from django.db.models import QuerySet, Count, Max
+from django.db.models import QuerySet, Count, Max, Sum
+from dataclasses import dataclass
 from datetime import datetime
 from django.utils import timezone
 from datetime import timedelta
@@ -580,3 +581,100 @@ class ProposerMyRewardsService:
         # 2) 보유 리워드 조회 후 직렬화
         prs_qs = self._base_qs().order_by("-pk")
         return self._serialize_response(prs_qs, cat)
+    
+
+
+def _schedule_end_dt(funding: Funding) -> Optional[datetime]:
+    """
+    schedule["end"]를 'YYYY-MM-DD'로 가정하고 해당 일자 00:00(로컬TZ)로 해석.
+    - 설계 상 end는 '마감일 00:00'로 간주(= end 당일은 이미 마감).
+    """
+    try:
+        end_str = (funding.schedule or {}).get("end")
+        if not end_str:
+            return None
+        dt = datetime.strptime(end_str, "%Y-%m-%d")
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    except Exception:
+        return None
+
+
+@dataclass
+class FundingSettlementResult:
+    updated: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    skipped: int = 0  # end가 없거나 아직 미도래, 혹은 상태가 IN_PROGRESS가 아님
+
+
+class FundingSettlementService:
+    """
+    자정 배치 등에서 호출:
+      - IN_PROGRESS 펀딩 중 end를 지난 것 정산
+      - 성공: (DONE 결제금액 합계) >= goal_amount
+      - 실패: 그 외
+    """
+
+    def __init__(self, now: Optional[datetime] = None):
+        self.now = now or timezone.now()
+        self.Payment = django_apps.get_model("pays", "Payment")
+
+    def _is_expired(self, funding: Funding) -> bool:
+        end_dt = _schedule_end_dt(funding)
+        return bool(end_dt and self.now >= end_dt)
+
+    def _paid_amount(self, funding_id: int) -> int:
+        agg = (
+            self.Payment.objects
+            .filter(funding_id=funding_id, status=PaymentStatusChoices.DONE)
+            .aggregate(total=Sum("total_amount"))
+        )
+        return int(agg["total"] or 0)
+
+    @transaction.atomic
+    def settle_one(self, funding: Funding) -> Optional[str]:
+        """
+        단일 펀딩 정산. 상태가 실제로 바뀌면 'SUCCEEDED'/'FAILED' 반환, 아니면 None.
+        DB 경합 대비 UPDATE 조건에 status=IN_PROGRESS 포함.
+        """
+        if funding.status != FundingStatusChoices.IN_PROGRESS:
+            return None
+        if not self._is_expired(funding):
+            return None
+
+        total_paid = self._paid_amount(funding.id)
+        new_status = (
+            FundingStatusChoices.SUCCEEDED
+            if total_paid >= int(funding.goal_amount or 0)
+            else FundingStatusChoices.FAILED
+        )
+
+        # 경합 회피: 조건부 업데이트
+        updated = (
+            Funding.objects
+            .filter(pk=funding.pk, status=FundingStatusChoices.IN_PROGRESS)
+            .update(status=new_status)
+        )
+        return new_status if updated else None
+
+    def run(self) -> FundingSettlementResult:
+        res = FundingSettlementResult()
+        qs = Funding.objects.filter(status=FundingStatusChoices.IN_PROGRESS).only("id", "schedule", "goal_amount", "status")
+
+        # end 파싱이 필요한 관계로 파이썬 필터링(건수가 많아지면 별도 인덱싱/캐싱 고려)
+        targets = [f for f in qs if self._is_expired(f)]
+
+        for f in targets:
+            changed = self.settle_one(f)
+            if changed == FundingStatusChoices.SUCCEEDED:
+                res.updated += 1; res.succeeded += 1
+            elif changed == FundingStatusChoices.FAILED:
+                res.updated += 1; res.failed += 1
+            else:
+                res.skipped += 1
+
+        # 아직 미도래/스킵된 것까지 합산하려면 아래처럼 계산 가능
+        res.skipped += (qs.count() - len(targets))
+        return res
+
+    

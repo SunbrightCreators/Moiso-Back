@@ -8,7 +8,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from utils.decorators import validate_path_choices
 from utils.helpers import resolve_viewer_addr
-from collections import OrderedDict
 
 from utils.choices import ProfileChoices, ZoomChoices, FundingStatusChoices
 from maps.services import GeocodingService
