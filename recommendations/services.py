@@ -1,7 +1,9 @@
+import os
 from typing import Literal
 import heapq
 import re
 import numpy as np
+from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import HttpRequest
@@ -33,7 +35,8 @@ korean_stopwords = [
 ]
 
 try:
-    word2vec_model = KeyedVectors.load_word2vec_format('recommendations/GoogleNews-vectors-negative300.bin', binary=True)
+    model_path = os.path.join(settings.BASE_DIR, 'recommendations', 'GoogleNews-vectors-negative300.bin')
+    word2vec_model = KeyedVectors.load_word2vec_format(model_path, binary=True)
 except Exception as e:
     print(f"Word2Vec 모델 로드 실패: {e}")
     word2vec_model = None
