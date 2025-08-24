@@ -128,7 +128,7 @@ class RecommendationScrapService:
 
         # 사용자가 스크랩한 최신 제안 10개 가져오기
         scrapped_proposals = Proposal.objects.filter(
-            founder_scrap_proposal__user=self.request.user,
+            founder_scrap_proposal__user=self.request.user.founder,
         ).order_by(
             '-created_at',
         )[:10]
@@ -149,7 +149,7 @@ class RecommendationScrapService:
 
         # 스크랩한 제안 또는 펀딩 있는 제안 제외 + 업종 필터링
         proposals = Proposal.objects.exclude(
-            Q(founder_scrap_proposal__user=self.request.user)
+            Q(founder_scrap_proposal__user=self.request.user.founder)
             | Q(funding__is_null=False)
         ).filter_user_industry(
             self.request.user,
