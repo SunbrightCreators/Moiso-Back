@@ -79,15 +79,15 @@ class AI:
         # 단어 벡터들의 평균을 게시물 벡터로 사용
         return sum(vectors) / len(vectors)
 
-    def calc_cosine_similarity(self, source_vector, all_vectors):
+    def calc_cosine_similarity(self, source_vector, comparison_vectors):
         """
         소스 벡터와 모든 게시물 벡터 간의 유사도를 계산합니다.
         """
         # 벡터들을 2D 배열로 변환 (scikit-learn의 입력 형식)
         source_vector = source_vector.reshape(1, -1)
-        all_vectors = np.array(all_vectors)
+        comparison_vectors = np.array(comparison_vectors)
         # 코사인 유사도 계산
-        similarity_scores = cosine_similarity(source_vector, all_vectors)
+        similarity_scores = cosine_similarity(source_vector, comparison_vectors)
         return similarity_scores[0]
 
 class RecommendationCalcService:
