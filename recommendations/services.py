@@ -47,7 +47,7 @@ class AI:
         한국어 텍스트를 전처리하고 명사만 추출하여 토큰화합니다.
         """
         # 한글과 띄어쓰기 외 모든 문자 제거
-        text = re.sub('[^가-힣\s]', '', text)
+        text = re.sub(r'[^가-힣\s]', '', text)
         # 명사 추출
         tokens = okt.nouns(text)
         # 불용어 제거
