@@ -153,7 +153,7 @@ class RecommendationScrapService:
         # 스크랩한 제안 또는 펀딩 있는 제안 제외 + 업종 필터링
         proposals = Proposal.objects.exclude(
             Q(founder_scrap_proposal__user=self.request.user.founder)
-            | Q(funding__is_null=False)
+            | Q(funding__isnull=False)
         ).filter_user_industry(
             self.request.user,
             ProfileChoices.founder.value,
