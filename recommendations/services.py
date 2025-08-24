@@ -34,6 +34,9 @@ except Exception as e:
     word2vec_model = None
 
 class AI:
+    def __init__(self, model):
+        self.model = model
+
     def _preprocess_and_tokenize(self, text:str):
         """
         한국어 텍스트를 전처리하고 명사만 추출하여 토큰화합니다.
@@ -50,13 +53,10 @@ class AI:
         """
         내용을 Word2Vec 벡터로 변환합니다.
         """
-        if not word2vec_model:
-            raise APIException('AI 모델을 불러오지 못했어요.')
-
         tokens = self._preprocess_and_tokenize(text)
 
         # 토큰화된 단어들 중 모델에 존재하는 단어만 추출
-        vectors = [word2vec_model[word] for word in tokens if word in word2vec_model.key_to_index]
+        vectors = [self.model[word] for word in tokens if word in self.model]
         if not vectors:
             return None
 
@@ -77,7 +77,10 @@ class AI:
 class RecommendationScrapService:
     def __init__(self, request:HttpRequest):
         self.request = request
-        self.ai = AI()
+
+        if not word2vec_model:
+            raise APIException('AI 모델을 불러오지 못했어요. 관리자에게 문의하세요.')
+        self.ai = AI(word2vec_model)
 
     @require_profile(ProfileChoices.founder)
     def recommend_founder_scrap_proposal(self):
