@@ -28,15 +28,19 @@ class ProposalQuerySet(models.QuerySet):
     def filter_user_address(self, user, profile:Literal['proposer','founder']):
         user_profile = getattr(user, profile)
         if profile == ProfileChoices.proposer.value:
-            address = user_profile.proposer_level.address
+            addresses = user_profile.proposer_level.values_list('address', flat=True)
         elif profile == ProfileChoices.founder.value:
-            address = user_profile.address
+            addresses = user_profile.address
 
-        return self.filter_address(
-            sido=address['sido'],
-            sigungu=address['sigungu'],
-            eupmyundong=address['eupmyundong'],
-        )
+        condition= Q()
+        for address in addresses:
+            condition |= Q(
+                address__sido=address['sido'],
+                address__sigungu=address['sigungu'],
+                address__eupmyundong=address['eupmyundong'],
+            )
+
+        return self.filter(condition)
 
     def filter_user_industry(self, user, profile:Literal['proposer','founder']):
         user_profile = getattr(user, profile)
