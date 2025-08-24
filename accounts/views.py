@@ -12,6 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from django.db.utils import ProgrammingError, OperationalError
 from django.utils.crypto import get_random_string
 
+from maps.services import ReverseGeocodingService
 from .models import (
     User,
     Proposer,
@@ -26,6 +27,7 @@ from .serializers import (
     FounderSerializer,
     UserProposerSignupSerializer,
     UserFounderSignupSerializer,
+    LocationHistoryCreateSerializer
 )
 from utils.choices import IndustryChoices, FounderTargetChoices, SexChoices
 
@@ -397,3 +399,49 @@ class AccountsProfileRoot(APIView):
             status=status.HTTP_200_OK,
         )
 
+class AccountsLocationHistoryRoot(APIView):
+    """
+    POST /accounts/location-history
+    - 좌표 → 법정동 변환 후 LocationHistory에 저장
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # 1) 요청 검증
+        ser = LocationHistoryCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        v = ser.validated_data
+
+        # 2) proposer 프로필 필수
+        proposer = getattr(request.user, "proposer", None)
+        if proposer is None:
+            return Response(
+                {"detail": "proposer 프로필이 존재하지 않습니다. 먼저 생성하세요."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # 3) 좌표 → 법정동 주소 변환
+        svc = ReverseGeocodingService()
+        legal = svc.get_position_to_legal(
+            {"latitude": v["latitude"], "longitude": v["longitude"]}
+        )
+        # legal 예: {"sido": ..., "sigungu": ..., "eupmyundong": ...}
+
+        # 4) 클라이언트 timestamp(ms) → created_at 설정
+        created_at = datetime.fromtimestamp(v["timestamp"] / 1000.0, tz=dt_timezone.utc)
+
+        # 5) 저장 (user, created_at 유니크 → 중복시 409)
+        try:
+            LocationHistory.objects.create(
+                user=proposer,
+                address=legal,
+                created_at=created_at,
+            )
+        except IntegrityError:
+            return Response(
+                {"detail": "이미 존재하는 값입니다."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response({"detail": "위치기록을 추가했어요."}, status=status.HTTP_201_CREATED)

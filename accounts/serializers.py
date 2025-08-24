@@ -221,3 +221,12 @@ class UserFounderSignupSerializer(UserBaseSignupSerializer):
         founder_ser.save()
 
         return user
+    
+class LocationHistoryCreateSerializer(serializers.Serializer):
+    # ms 단위 epoch, 0 이상 정수
+    timestamp = serializers.IntegerField(min_value=0, required=True, allow_null=False)
+    # 숫자 필수 (위/경도)
+    latitude = serializers.FloatField(required=True, allow_null=False)
+    longitude = serializers.FloatField(required=True, allow_null=False)
+    # 사용은 안 해도 명세상 필수
+    accuracy = serializers.FloatField(required=True, allow_null=False)
