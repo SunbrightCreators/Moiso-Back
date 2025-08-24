@@ -100,15 +100,18 @@ class RecommendationScrapService:
         if not word2vec_model:
             raise APIException('AI 모델을 불러오지 못했어요. 관리자에게 문의하세요.')
         self.ai = AI(word2vec_model)
+    
+    def _cache_key_proposal(self, proposal_id):
+        return CacheKey.PROPOSAL_VECTOR.format(proposal_id=proposal_id)
 
-    def _calc_vectors(self, cache_key:CacheKey, posts, option:Literal['vector']|None=None):
+    def _calc_vectors(self, cache_key_method, posts, option:Literal['vector']|None=None):
         valid_vectors = list()
         for post in posts:
-            vector = cache.get(cache_key.format(post.id))
+            vector = cache.get(cache_key_method(post.id))
             if not vector:
                 # 각 게시물 벡터 계산
                 vector = self.ai.vectorize(post.title + post.content)
-                cache.set(cache_key.format(post.id), vector, timeout=365*24*60*60*1) # 수정 불가능하여 데이터가 변경되는 경우가 없으므로 1년 캐싱
+                cache.set(cache_key_method(post.id), vector, timeout=365*24*60*60*1) # 수정 불가능하여 데이터가 변경되는 경우가 없으므로 1년 캐싱
             # 유효한 벡터만 필터링
             if vector is not None:
                 if option == 'vector':
@@ -137,7 +140,7 @@ class RecommendationScrapService:
 
         # 스크랩한 제안 벡터 계산하기
         valid_scrapped_proposals_vectors = self._calc_vectors(
-            cache_key=CacheKey.PROPOSAL_VECTOR,
+            cache_key_method=self._cache_key_proposal,
             posts=scrapped_proposals,
             option='vector',
         )
@@ -158,7 +161,7 @@ class RecommendationScrapService:
 
         # 추천 후보군 제안 벡터 계산하기
         valid_proposals_and_vectors = self._calc_vectors(
-            cache_key=CacheKey.PROPOSAL_VECTOR,
+            cache_key_method=self._cache_key_proposal,
             posts=proposals,
         )
 
