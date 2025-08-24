@@ -68,11 +68,14 @@ class AI:
         """
         if not word2vec_model:
             raise APIException('AI 모델을 불러오지 못했어요.')
+
         tokens = self._preprocess_and_tokenize(text)
+
         # 토큰화된 단어들 중 모델에 존재하는 단어만 추출
         vectors = [word2vec_model[word] for word in tokens if word in word2vec_model.key_to_index]
         if not vectors:
             return None
+
         # 단어 벡터들의 평균을 게시물 벡터로 사용
         return sum(vectors) / len(vectors)
 
