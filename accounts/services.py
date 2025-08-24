@@ -1,208 +1,301 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, Tuple, Optional, Iterable, DefaultDict
+from typing import Dict, Iterable, List, Optional, Tuple, DefaultDict
 from collections import defaultdict
-from datetime import timedelta, datetime
-from django.utils import timezone as tz
+from datetime import timedelta
 
 from django.apps import apps as django_apps
-from django.db import transaction
+from django.conf import settings
+from django.db.models import Q
+from django.utils import timezone
 
-from .models import Proposer, ProposerLevel, LocationHistory
-from utils.choices import PaymentStatusChoices
+LEVEL_WEIGHTS = getattr(settings, "LEVEL_WEIGHTS", {
+    "visit_days": 40,   # 방문 빈도
+    "stay_hours": 30,   # 체류 시간
+    "activity":  20,    # 활동 기여
+    "recency":   10,    # 최근 접속
+})
+LEVEL_CAPS = getattr(settings, "LEVEL_CAPS", {
+    "visit_days": 7,    # 7일
+    "stay_hours": 20,   # 20시간
+    "activity":  10,    # 10회
+})
+STAY_GAP_MAX_MINUTES = int(getattr(settings, "STAY_GAP_MAX_MINUTES", 60))  # 인접 로그 간격 허용치
+DEFAULT_WINDOW_DAYS = int(getattr(settings, "LEVEL_WINDOW_DAYS", 7))
 
+# ── 타입/헬퍼 ──────────────────────────────────────────────────────────────
+AddrT = Tuple[str, str, str]  # (sido, sigungu, eupmyundong)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 설정/헬퍼
-# ─────────────────────────────────────────────────────────────────────────────
-Addr = Tuple[str, str, str]  # (sido, sigungu, eupmyundong)
-
-
-@dataclass(frozen=True)
-class LevelWeights:
-    """명세 기반 가중치/상한."""
-    VISIT_WEIGHT: int = 40     # 방문 빈도 40%
-    PROPOSAL_WEIGHT: int = 20  # 제안 수 20%
-    ACTIVITY_WEIGHT: int = 20  # 활동(좋아요+펀딩) 20%
-    VISIT_CAP: int = 7         # 1일 1회 기준 주 최대 7
-    PROPOSAL_CAP: int = 10     # 주 최대 10
-    ACTIVITY_CAP: int = 10     # 주 최대 10
-
-
-def _week_window(now: datetime | None = None) -> tuple[datetime, datetime]:
-    now = now or tz.now()
-    local = tz.localtime(now)
-    start = (local - timedelta(days=local.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=7)
-    return start, end
-
-
-
-def _norm_addr(addr_json: dict | None) -> Optional[Addr]:
-    """주소 JSON에서 (시/도, 시/군/구, 읍/면/동)만 추려 표준 튜플로 정규화."""
-    if not isinstance(addr_json, dict):
+def _canon_addr(addr: dict | None) -> Optional[AddrT]:
+    if not isinstance(addr, dict):
         return None
-    sido = addr_json.get("sido")
-    sigungu = addr_json.get("sigungu")
-    eup = addr_json.get("eupmyundong")
-    if not (sido and sigungu and eup):
+    s, g, e = addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong")
+    if not (s and g and e):
         return None
-    return (str(sido), str(sigungu), str(eup))
+    return (str(s), str(g), str(e))
 
+def _now():
+    return timezone.now()
 
-def _score_to_level(total_points: int) -> int:
-    """
-    점수 → 레벨 매핑
-    - 0~29:  Lv.1
-    - 30~59: Lv.2
-    - 60~100: Lv.3
-    """
-    if total_points < 30:
-        return 1
-    if total_points < 60:
+def _window_7_days(end: Optional[timezone.datetime] = None) -> Tuple[timezone.datetime, timezone.datetime]:
+    end = end or _now()
+    start = end - timedelta(days=DEFAULT_WINDOW_DAYS)
+    return (start, end)
+
+def _score_to_level(score: float) -> int:
+    if score >= 60:
+        return 3
+    if score >= 30:
         return 2
-    return 3
+    return 1
 
+@dataclass
+class RegionStats:
+    visit_days: int = 0         # (cap 7)
+    stay_hours: float = 0.0     # (cap 20)
+    activity: int = 0           # (cap 10)
+    recency: int = 0            # 0 or 1
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 핵심 서비스
-# ─────────────────────────────────────────────────────────────────────────────
-class ProposerLevelingService:
-    """
-    주간 활동을 주소(구/동) 단위로 모아 점수 계산 후 ProposerLevel을 upsert.
-    계산식(명세):
-        (방문횟수/7 * 40) + (제안수/10 * 20) + ((좋아요+펀딩)/10 * 20)
-      - 각 항목의 분수는 1을 상한으로 캡핑
-      - 체류 시간(30%) 항목은 GPS 체류 로그 모델이 생기면 확장
-    """
-
-    def __init__(self, *, start: datetime | None = None, end: datetime | None = None,
-                weights: LevelWeights | None = None):
-        self.start, self.end = (start, end) if (start and end) else _week_window()
-        self.w = weights or LevelWeights()
-
-        # 외부 앱 모델 지연 로딩(순환 참조 방지)
-        self.Proposal = django_apps.get_model("proposals", "Proposal")
-        self.ProposerLikeFunding = django_apps.get_model("fundings", "ProposerLikeFunding")
-        self.Payment = django_apps.get_model("pays", "Payment")
-
-    # ── 집계(이번 주) ────────────────────────────────────────────────────
-    def _visits_by_addr(self, proposer: Proposer) -> Dict[Addr, int]:
-        """
-        방문 횟수: LocationHistory에서 날짜 단위로 '하루 최대 1회'로 처리 → 주간 합산, 상한 7.
-        """
-        rows = (
-            LocationHistory.objects
-            .filter(user=proposer, created_at__gte=self.start, created_at__lt=self.end)
-            .only("created_at", "address")
-            .order_by("created_at")
+    def clamped(self) -> "RegionStats":
+        return RegionStats(
+            visit_days=min(self.visit_days, LEVEL_CAPS["visit_days"]),
+            stay_hours=min(self.stay_hours, LEVEL_CAPS["stay_hours"]),
+            activity=min(self.activity, LEVEL_CAPS["activity"]),
+            recency=1 if self.recency else 0,
         )
-        per_addr_dates: DefaultDict[Addr, set] = defaultdict(set)
-        for r in rows:
-            addr = _norm_addr(r.address)
-            if not addr:
+
+    def to_score(self) -> int:
+        c = self.clamped()
+        score = 0.0
+        # 방문 빈도
+        score += (c.visit_days / LEVEL_CAPS["visit_days"]) * LEVEL_WEIGHTS["visit_days"]
+        # 체류 시간
+        score += (c.stay_hours / LEVEL_CAPS["stay_hours"]) * LEVEL_WEIGHTS["stay_hours"]
+        # 활동 기여
+        score += (c.activity / LEVEL_CAPS["activity"]) * LEVEL_WEIGHTS["activity"]
+        # 최근성
+        score += (c.recency * LEVEL_WEIGHTS["recency"])
+        return int(round(score))
+
+
+# ── 핵심 서비스 ────────────────────────────────────────────────────────────
+class ProposerWeeklyLevelComputer:
+    """
+    최근 7일(또는 주어진 윈도우) 기준으로
+    Proposer × 동(읍·면·동) 레벨을 산정해 ProposerLevel에 반영.
+    """
+
+    def __init__(self,
+                 window_start: Optional[timezone.datetime] = None,
+                 window_end: Optional[timezone.datetime] = None):
+        if window_start and window_end:
+            self.window = (window_start, window_end)
+        else:
+            self.window = _window_7_days(window_end)
+
+        self.Proposer        = django_apps.get_model("accounts", "Proposer")
+        self.ProposerLevel   = django_apps.get_model("accounts", "ProposerLevel")
+        self.LocationHistory = django_apps.get_model("accounts", "LocationHistory")
+
+        self.Proposal              = django_apps.get_model("proposals", "Proposal")
+        self.ProposerLikeProposal  = django_apps.get_model("proposals", "ProposerLikeProposal")
+
+        self.Payment  = django_apps.get_model("pays", "Payment")
+        self.Funding  = django_apps.get_model("fundings", "Funding")
+        self.PmtStat  = django_apps.get_model("utils", "PaymentStatusChoices") if False else None  # placeholder
+        # PaymentStatusChoices는 Enum class 이므로 아래 쿼리에서 직접 문자열 사용
+
+    # ── 공개 진입점 ────────────────────────────────────────────────────
+    def run(self, only_proposer_ids: Optional[Iterable[str]] = None) -> Dict[str, int]:
+        """
+        Returns: {proposer_id: updated_rows_count}
+        """
+        updated: Dict[str, int] = {}
+        base_qs = self.Proposer.objects.select_related("user")
+        if only_proposer_ids:
+            base_qs = base_qs.filter(id__in=list(only_proposer_ids))
+
+        for proposer in base_qs.iterator():
+            regions = self._collect_regions_for_proposer(proposer)
+            if not regions:
                 continue
-            local_date = tz.localtime(r.created_at).date()
-            per_addr_dates[addr].add(local_date)  
-        return {addr: min(len(dates), self.w.VISIT_CAP) for addr, dates in per_addr_dates.items()}
+            stats_map = self._build_region_stats(proposer, regions)
+            n = self._upsert_levels(proposer, stats_map)
+            updated[proposer.id] = n
+        return updated
 
-    def _proposals_by_addr(self, proposer: Proposer) -> Dict[Addr, int]:
-        """제안 수: proposals.Proposal(작성자=proposer)의 이번 주 생성 건."""
-        q = (
-            self.Proposal.objects
-            .filter(user=proposer, created_at__gte=self.start, created_at__lt=self.end)
-            .only("address", "created_at")
-        )
-        cnt: DefaultDict[Addr, int] = defaultdict(int)
-        for p in q:
-            addr = _norm_addr(getattr(p, "address", None))
-            if addr:
-                cnt[addr] += 1
-        return {a: min(n, self.w.PROPOSAL_CAP) for a, n in cnt.items()}
+    # ── region 후보 모으기 ────────────────────────────────────────────
+    def _collect_regions_for_proposer(self, proposer) -> List[AddrT]:
+        start, end = self.window
+        regions: set[AddrT] = set()
 
-    def _likes_by_addr(self, proposer: Proposer) -> Dict[Addr, int]:
-        """좋아요 수: fundings.ProposerLikeFunding(user=proposer) 이번 주.
-        주소 기준은 '좋아요한 펀딩의 proposal.address'."""
-        q = (
-            self.ProposerLikeFunding.objects
-            .select_related("funding", "funding__proposal")
-            .filter(user=proposer, created_at__gte=self.start, created_at__lt=self.end)
-        )
-        cnt: DefaultDict[Addr, int] = defaultdict(int)
-        for lk in q:
-            prop = getattr(getattr(lk, "funding", None), "proposal", None)
-            addr = _norm_addr(getattr(prop, "address", None) if prop else None)
-            if addr:
-                cnt[addr] += 1
-        return cnt  # 최종 합산 시 캡핑
+        # 1) 위치 기록
+        for row in self.LocationHistory.objects.filter(
+            user=proposer, created_at__gte=start, created_at__lt=end
+        ).only("address"):
+            a = _canon_addr(row.address)
+            if a:
+                regions.add(a)
 
-    def _pays_by_addr(self, proposer: Proposer) -> Dict[Addr, int]:
-        """펀딩 참여 수: pays.Payment(DONE, user=proposer) 이번 주 승인 건.
-        주소 기준은 '결제한 펀딩의 proposal.address'."""
-        q = (
-            self.Payment.objects
-            .select_related("funding", "funding__proposal")
-            .filter(
-                user=proposer,
-                status=PaymentStatusChoices.DONE,
-                approved_at__gte=self.start, approved_at__lt=self.end,
-            )
-        )
-        cnt: DefaultDict[Addr, int] = defaultdict(int)
-        for pay in q:
-            prop = getattr(getattr(pay, "funding", None), "proposal", None)
-            addr = _norm_addr(getattr(prop, "address", None) if prop else None)
-            if addr:
-                cnt[addr] += 1
-        return cnt
+        # 2) 제안/좋아요/펀딩참여가 있었던 동 주소
+        # 제안
+        for row in self.Proposal.objects.filter(
+            user=proposer, created_at__gte=start, created_at__lt=end
+        ).only("address"):
+            a = _canon_addr(getattr(row, "address", None))
+            if a:
+                regions.add(a)
 
-    # ── 점수 → 레벨 ─────────────────────────────────────────────────────
-    def _calc_points(self, *, visit: int, proposal: int, like: int, pay: int) -> int:
-        visit_points = min(visit / float(self.w.VISIT_CAP or 1), 1.0) * self.w.VISIT_WEIGHT
-        prop_points  = min(proposal / float(self.w.PROPOSAL_CAP or 1), 1.0) * self.w.PROPOSAL_WEIGHT
-        act_raw = like + pay
-        act_points   = min(act_raw / float(self.w.ACTIVITY_CAP or 1), 1.0) * self.w.ACTIVITY_WEIGHT
-        total = visit_points + prop_points + act_points  # 현재 상한 80
-        return int(round(max(0, min(100, total))))
+        # 좋아요(제안) - created_at 필드가 없을 수도 있으니 방어
+        like_qs = self.ProposerLikeProposal.objects.filter(user=proposer)
+        try:
+            like_qs = like_qs.filter(created_at__gte=start, created_at__lt=end)
+        except Exception:
+            # created_at이 없다면, '최근 7일 내 좋아요'를 정확히 알 수 없으므로 region 후보만 추출하지 않음
+            like_qs = like_qs.none()
+        for lk in like_qs.select_related("proposal").only("proposal__address"):
+            a = _canon_addr(getattr(getattr(lk, "proposal", None), "address", None))
+            if a:
+                regions.add(a)
 
-    def _upsert_level(self, proposer: Proposer, addr: Addr, level: int) -> None:
-        """ProposerLevel(address JSON 정확히 매칭) upsert."""
-        sido, sigungu, eup = addr
-        addr_json = {"sido": sido, "sigungu": sigungu, "eupmyundong": eup}
-        obj, created = ProposerLevel.objects.get_or_create(
+        # 펀딩 참여(Payment.status=DONE & approved_at ∈ window)
+        pay_qs = self.Payment.objects.filter(
             user=proposer,
-            address=addr_json,
-            defaults={"level": level},
+            status="DONE",  # PaymentStatusChoices.DONE
+            approved_at__gte=start,
+            approved_at__lt=end,
+        ).select_related("funding", "funding__proposal")
+        for p in pay_qs.only("funding__proposal__address"):
+            a = _canon_addr(getattr(getattr(getattr(p, "funding", None), "proposal", None), "address", None))
+            if a:
+                regions.add(a)
+
+        return list(regions)
+
+    # ── 지표 집계 ─────────────────────────────────────────────────────
+    def _build_region_stats(self, proposer, regions: List[AddrT]) -> Dict[AddrT, RegionStats]:
+        start, end = self.window
+        stats: Dict[AddrT, RegionStats] = {r: RegionStats() for r in regions}
+
+        # A) 방문(일수) & 체류(시간)
+        #  - 같은 사용자/윈도우의 LocationHistory 전체를 시간순으로 읽고,
+        #  - Δt를 "이전 레코드의 지역"에 귀속(같은 지역 + Δt <= threshold 일 때만 체류로 인정)
+        hist = list(
+            self.LocationHistory.objects.filter(
+                user=proposer, created_at__gte=start, created_at__lt=end
+            ).only("created_at", "address").order_by("created_at")
         )
-        if not created and obj.level != level:
-            obj.level = level
-            obj.save(update_fields=["level"])
 
-    # ── 엔트리포인트 ─────────────────────────────────────────────────────
-    @transaction.atomic
-    def run_for_proposer(self, proposer: Proposer) -> dict:
-        """단일 사용자 갱신. 디버그용으로 주소별 산출치도 반환."""
-        visits   = self._visits_by_addr(proposer)
-        props    = self._proposals_by_addr(proposer)
-        likes    = self._likes_by_addr(proposer)
-        pays     = self._pays_by_addr(proposer)
+        # 방문일수: 지역별 날짜 set
+        visited_days: DefaultDict[AddrT, set] = defaultdict(set)
 
-        results: dict[Addr, dict] = {}
-        for addr in (set(visits) | set(props) | set(likes) | set(pays)):
-            v  = visits.get(addr, 0)
-            pr = props.get(addr, 0)
-            lk = likes.get(addr, 0)
-            py = pays.get(addr, 0)
-            points = self._calc_points(visit=v, proposal=pr, like=lk, pay=py)
-            level  = _score_to_level(points)
-            self._upsert_level(proposer, addr, level)
-            results[addr] = {"visit": v, "proposal": pr, "like": lk, "pay": py, "points": points, "level": level}
-        return results
+        prev_addr: Optional[AddrT] = None
+        prev_ts: Optional[timezone.datetime] = None
+        for row in hist:
+            a = _canon_addr(row.address)
+            ts = row.created_at
+            if a:
+                visited_days[a].add(ts.date())
 
-    @transaction.atomic
-    def run_for_all(self, queryset: Optional[Iterable[Proposer]] = None) -> None:
-        """전체 사용자 갱신."""
-        qs = queryset or Proposer.objects.all().select_related("user")
-        for p in qs:
-            self.run_for_proposer(p)
+            if prev_addr and prev_ts and a == prev_addr:
+                dt_min = (ts - prev_ts).total_seconds() / 60.0
+                if 0 < dt_min <= STAY_GAP_MAX_MINUTES:
+                    stats[a].stay_hours += (dt_min / 60.0)
 
+            prev_addr, prev_ts = a, ts
+
+        for a, days in visited_days.items():
+            if a in stats:
+                stats[a].visit_days = len(days)
+
+        # B) 활동 기여 (제안/좋아요/펀딩)
+        #   - 모두 "해당 지역 주소 + 최근 7일" 기준
+        #   - 효율 위해 region -> Q 주소필터 맵을 만들어 중복 필터 재사용
+        addr_filters: Dict[AddrT, Q] = {
+            a: Q(address__sido=a[0], address__sigungu=a[1], address__eupmyundong=a[2])
+            for a in regions
+        }
+        prop_counts: Dict[AddrT, int] = {a: 0 for a in regions}
+        like_counts: Dict[AddrT, int] = {a: 0 for a in regions}
+        pay_counts:  Dict[AddrT, int] = {a: 0 for a in regions}
+
+        # 제안 수
+        for a, q in addr_filters.items():
+            prop_counts[a] = self.Proposal.objects.filter(
+                user=proposer, created_at__gte=start, created_at__lt=end
+            ).filter(q).count()
+
+        # 좋아요 수 (created_at 없을 가능성 방어)
+        base_like_qs = self.ProposerLikeProposal.objects.filter(user=proposer)
+        like_has_created_at = True
+        try:
+            _ = base_like_qs.model._meta.get_field("created_at")
+        except Exception:
+            like_has_created_at = False
+
+        for a in regions:
+            q = Q(proposal__address__sido=a[0], proposal__address__sigungu=a[1], proposal__address__eupmyundong=a[2])
+            lk_qs = base_like_qs.filter(q)
+            if like_has_created_at:
+                lk_qs = lk_qs.filter(created_at__gte=start, created_at__lt=end)
+            else:
+                # created_at이 없으면, “최근 7일 내 좋아요”를 판별할 수 없으므로 0으로 둠
+                lk_qs = lk_qs.none()
+            like_counts[a] = lk_qs.count()
+
+        # 펀딩 참여 수 (Payment.status='DONE' & approved_at)
+        for a in regions:
+            q = Q(funding__proposal__address__sido=a[0],
+                  funding__proposal__address__sigungu=a[1],
+                  funding__proposal__address__eupmyundong=a[2])
+            pay_counts[a] = self.Payment.objects.filter(
+                user=proposer,
+                status="DONE",
+                approved_at__gte=start, approved_at__lt=end,
+            ).filter(q).count()
+
+        for a in regions:
+            stats[a].activity = prop_counts[a] + like_counts[a] + pay_counts[a]
+
+        # C) 최근성(최근 7일 접속 여부)
+        last_login = getattr(getattr(proposer, "user", None), "last_login", None)
+        recency = 1 if (last_login and (end - last_login) <= timedelta(days=DEFAULT_WINDOW_DAYS)) else 0
+        for a in regions:
+            stats[a].recency = recency
+
+        return stats
+
+    # ── 레벨 저장 ─────────────────────────────────────────────────────
+    def _upsert_levels(self, proposer, stats_map: Dict[AddrT, RegionStats]) -> int:
+        """
+        ProposerLevel (user, address{...}) 존재 시 update, 없으면 create.
+        Returns: updated_or_created_rows_count
+        """
+        updated = 0
+        for a, st in stats_map.items():
+            score = st.to_score()
+            level = _score_to_level(score)
+
+            sido, sigungu, eup = a
+            # 동일 주소 행 존재하면 업데이트(여러 개면 가장 최근 것 1개만)
+            row = self.ProposerLevel.objects.filter(
+                user=proposer,
+                address__sido=sido,
+                address__sigungu=sigungu,
+                address__eupmyundong=eup,
+            ).order_by("-id").first()
+
+            if row:
+                if row.level != level:
+                    row.level = level
+                    # updated_at이 없다면 save만; 있다면 자동 갱신
+                    row.save(update_fields=["level"])
+                updated += 1
+            else:
+                self.ProposerLevel.objects.create(
+                    user=proposer,
+                    address={"sido": sido, "sigungu": sigungu, "eupmyundong": eup},
+                    level=level,
+                )
+                updated += 1
+        return updated
