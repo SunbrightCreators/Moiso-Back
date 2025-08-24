@@ -81,6 +81,9 @@ class AI:
         return similarity_scores[0]
 
 class RecommendationCalcService:
+    def __init__(self, request:HttpRequest):
+        self.request = request
+
     def _calc_level(self):
         pass
 
@@ -90,5 +93,5 @@ class RecommendationCalcService:
     def _calc_business_hours(self):
         pass
 
-    def calc_score(self):
+    def recommend_calc(self):
         pass
