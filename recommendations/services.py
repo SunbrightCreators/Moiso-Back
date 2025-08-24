@@ -5,7 +5,6 @@ from gensim.models import KeyedVectors
 from sklearn.metrics.pairwise import cosine_similarity
 
 okt = Okt()
-model = KeyedVectors.load_word2vec_format('recommendations/GoogleNews-vectors-negative300.bin', binary=True)
 korean_stopwords = [
     # 조사
     '은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '부터', '까지',
@@ -44,6 +43,12 @@ korean_stopwords = [
     '첫', '둘째', '셋째', '넷째', '다섯째', '마지막'
 ]
 
+try:
+    word2vec_model = KeyedVectors.load_word2vec_format('recommendations/GoogleNews-vectors-negative300.bin', binary=True)
+except Exception as e:
+    print(f"Word2Vec 모델 로드 실패: {e}")
+    word2vec_model = None
+
 class AI:
     def _preprocess_and_tokenize(self, text:str):
         """
@@ -61,9 +66,11 @@ class AI:
         """
         내용을 Word2Vec 벡터로 변환합니다.
         """
+        if not word2vec_model:
+            raise APIException('AI 모델을 불러오지 못했어요.')
         tokens = self._preprocess_and_tokenize(text)
         # 토큰화된 단어들 중 모델에 존재하는 단어만 추출
-        vectors = [model[word] for word in tokens if word in model.key_to_index]
+        vectors = [word2vec_model[word] for word in tokens if word in word2vec_model.key_to_index]
         if not vectors:
             return None
         # 단어 벡터들의 평균을 게시물 벡터로 사용
