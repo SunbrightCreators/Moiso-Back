@@ -44,8 +44,8 @@ korean_stopwords = [
     '첫', '둘째', '셋째', '넷째', '다섯째', '마지막'
 ]
 
-class RecommendationAIService:
-    def _preprocess_and_tokenize(self, text):
+class AI:
+    def _preprocess_and_tokenize(self, text:str):
         """
         한국어 텍스트를 전처리하고 명사만 추출하여 토큰화합니다.
         """
@@ -57,11 +57,11 @@ class RecommendationAIService:
         filtered_tokens = [word for word in tokens if word not in korean_stopwords and len(word) > 1]
         return filtered_tokens
 
-    def vectorize(self, content):
+    def vectorize(self, text:str):
         """
         내용을 Word2Vec 벡터로 변환합니다.
         """
-        tokens = self._preprocess_and_tokenize(content)
+        tokens = self._preprocess_and_tokenize(text)
         # 토큰화된 단어들 중 모델에 존재하는 단어만 추출
         vectors = [model[word] for word in tokens if word in model.key_to_index]
         if not vectors:
