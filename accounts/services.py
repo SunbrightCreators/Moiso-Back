@@ -2,11 +2,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Tuple, Optional, Iterable, DefaultDict
 from collections import defaultdict
-from datetime import timedelta
+from datetime import timedelta, datetime
+from django.utils import timezone as tz
 
 from django.apps import apps as django_apps
 from django.db import transaction
-from django.utils import timezone
 
 from .models import Proposer, ProposerLevel, LocationHistory
 from utils.choices import PaymentStatusChoices
@@ -29,16 +29,13 @@ class LevelWeights:
     ACTIVITY_CAP: int = 10     # 주 최대 10
 
 
-def _week_window(now=None) -> tuple[timezone.datetime, timezone.datetime]:
-    """
-    이번 주(월 00:00 ~ 다음 주 월 00:00) 구간 반환. (서버의 현재 TZ 기준)
-    - 주간 갱신 주기는 배포에서 스케줄링하고, 이 함수는 범위만 제공.
-    """
-    now = now or timezone.now()
-    local = timezone.localtime(now)
+def _week_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    now = now or tz.now()
+    local = tz.localtime(now)
     start = (local - timedelta(days=local.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=7)
     return start, end
+
 
 
 def _norm_addr(addr_json: dict | None) -> Optional[Addr]:
@@ -79,8 +76,8 @@ class ProposerLevelingService:
       - 체류 시간(30%) 항목은 GPS 체류 로그 모델이 생기면 확장
     """
 
-    def __init__(self, *, start: timezone.datetime | None = None, end: timezone.datetime | None = None,
-                 weights: LevelWeights | None = None):
+    def __init__(self, *, start: datetime | None = None, end: datetime | None = None,
+                weights: LevelWeights | None = None):
         self.start, self.end = (start, end) if (start and end) else _week_window()
         self.w = weights or LevelWeights()
 
@@ -105,7 +102,8 @@ class ProposerLevelingService:
             addr = _norm_addr(r.address)
             if not addr:
                 continue
-            per_addr_dates[addr].add(r.created_at.date())
+            local_date = tz.localtime(r.created_at).date()
+            per_addr_dates[addr].add(local_date)  
         return {addr: min(len(dates), self.w.VISIT_CAP) for addr, dates in per_addr_dates.items()}
 
     def _proposals_by_addr(self, proposer: Proposer) -> Dict[Addr, int]:
