@@ -119,7 +119,7 @@ class ProposalsZoom(APIView):
                     .with_level_area(sido=sido, sigungu=sigungu, eupmyundong=eupmyundong)
                     .filter_industry_choice(industry)
                     .with_user()
-                    .with_has_funding()  # founder 응답에서 필요
+                    .with_has_funding()
                 )
                 viewer_addr = resolve_viewer_addr(request.user, profile)
                 qs = qs.with_flags(user=request.user, profile=profile, viewer_addr=viewer_addr)
@@ -127,30 +127,55 @@ class ProposalsZoom(APIView):
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+            # 지오코더 준비
+            try:
+                geocoder = GeocodingService(request)
+            except TypeError:
+                geocoder = GeocodingService()
+
             prof = (profile or "").lower()
             groups = OrderedDict()
+            geocode_cache: dict[tuple[str, str, str], tuple[float | None, float | None]] = {}
 
             for obj in qs:
-                pos = obj.position or {}
-                lat = pos.get("latitude")
-                lng = pos.get("longitude")
-                key = (lat, lng)
+                # 주소 삼종으로만 그룹핑 (개별 position 사용 X)
+                addr = (obj.address or {})
+                addr_key = (addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong"))
+                if not all(addr_key):
+                    continue
 
+                # 동일 동은 동일 좌표 (캐시 + 반올림 정규화)
+                if addr_key not in geocode_cache:
+                    full_addr = " ".join(addr_key)
+                    try:
+                        pos = geocoder.get_address_to_position(query_address=full_addr) or {}
+                    except Exception:
+                        pos = {}
+                    lat = pos.get("latitude"); lng = pos.get("longitude")
+                    if lat is not None and lng is not None:
+                        try:
+                            lat = round(float(lat), 6)
+                            lng = round(float(lng), 6)
+                        except Exception:
+                            lat, lng = None, None
+                    geocode_cache[addr_key] = (lat, lng)
+
+                lat, lng = geocode_cache[addr_key]
+                if lat is None or lng is None:
+                    continue
+
+                key = (lat, lng)
                 if key not in groups:
                     groups[key] = {
-                        "position": {"latitude": lat, "longitude": lng},  # ← 그룹 바깥에만 position
+                        "position": {"latitude": lat, "longitude": lng},  # ← 바깥에만 position
                         "proposals": [],
                     }
 
+                # 아이템 내부에는 position 없음
                 if prof == "founder":
-                    item = ProposalZoomFounderItemSerializer(
-                        obj, context={"request": request}
-                    ).data
-                else:  # proposer
-                    # proposer도 아이템 내부에 position 없어야 하므로 ProposalListSerializer 사용
-                    item = ProposalListSerializer(
-                        obj, context={"request": request}
-                    ).data
+                    item = ProposalZoomFounderItemSerializer(obj, context={"request": request}).data
+                else:
+                    item = ProposalListSerializer(obj, context={"request": request}).data
 
                 groups[key]["proposals"].append(item)
 
