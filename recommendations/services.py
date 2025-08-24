@@ -9,7 +9,8 @@ from django.db.models import Q, Case, When, Value
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException
 from kiwipiepy import Kiwi
-from gensim.models import KeyedVectors
+import fasttext
+import fasttext.util
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.choices import ProfileChoices
 from utils.constants import CacheKey
@@ -34,12 +35,43 @@ korean_stopwords = [
     '하나', '둘', '셋', '넷', '다섯'
 ]
 
+def download_fasttext_model(lang='ko'):
+    """
+    FastText 사전훈련 모델을 다운로드합니다.
+    """
+    try:
+        # 모델 저장 경로 설정
+        model_dir = os.path.join(settings.BASE_DIR, 'recommendations')
+        os.makedirs(model_dir, exist_ok=True)
+
+        # 현재 작업 디렉토리를 모델 디렉토리로 변경
+        original_dir = os.getcwd()
+        os.chdir(model_dir)
+
+        # 모델 다운로드 (약 7GB for Korean)
+        print(f"{lang} 모델 다운로드 중...")
+        fasttext.util.download_model(lang, if_exists='ignore')
+
+        # 원래 디렉토리로 복원
+        os.chdir(original_dir)
+
+        # 모델 파일 경로 반환
+        model_path = os.path.join(model_dir, f'cc.{lang}.300.bin')
+        return model_path
+
+    except Exception as e:
+        print(f"모델 다운로드 실패: {e}")
+        os.chdir(original_dir)  # 오류 시에도 디렉토리 복원
+        return None
+
 try:
-    model_path = os.path.join(settings.BASE_DIR, 'recommendations', 'cc.ko.300.vec')
-    word2vec_model = KeyedVectors.load_word2vec_format(model_path, encoding='latin1')
+    model_path = os.path.join(settings.BASE_DIR, 'recommendations', 'cc.ko.300.bin')
+    if not os.path.exists(model_path):
+        model_path = download_fasttext_model('ko')
+    fasttext_model = fasttext.load_model(model_path)
 except Exception as e:
-    print(f"Word2Vec 모델 로드 실패: {e}")
-    word2vec_model = None
+    print(f"모델 로드 실패: {e}")
+    fasttext_model = None
 
 class AI:
     def __init__(self, model):
@@ -65,12 +97,12 @@ class AI:
 
     def vectorize(self, text:str):
         """
-        내용을 Word2Vec 벡터로 변환합니다.
+        내용을 FastText 벡터로 변환합니다.
         """
         tokens = self._preprocess_and_tokenize(text)
 
         # 토큰화된 단어들 중 모델에 존재하는 단어만 추출
-        vectors = [self.model[word] for word in tokens if word in self.model]
+        vectors = [self.model.get_word_vector(word) for word in tokens]
         if not vectors:
             return None
 
@@ -97,9 +129,9 @@ class RecommendationScrapService:
     def __init__(self, request:HttpRequest):
         self.request = request
 
-        if not word2vec_model:
+        if not fasttext_model:
             raise APIException('AI 모델을 불러오지 못했어요. 관리자에게 문의하세요.')
-        self.ai = AI(word2vec_model)
+        self.ai = AI(fasttext_model)
     
     def _cache_key_proposal(self, proposal_id):
         return CacheKey.PROPOSAL_VECTOR.format(proposal_id=proposal_id)
