@@ -6,7 +6,7 @@ from django.core.cache import cache
 from django.db.models import Q
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException
-from konlpy.tag import Okt
+from kiwipiepy import Kiwi
 from gensim.models import KeyedVectors
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.choices import ProfileChoices
@@ -15,7 +15,7 @@ from utils.decorators import require_profile
 from proposals.models import Proposal
 from proposals.serializers import ProposalListSerializer
 
-okt = Okt()
+kiwi = Kiwi()
 korean_stopwords = [
     # 의미 없는 의존명사 및 단위
     '것', '수', '때', '곳', '점', '바', '위', '아래', '중', '등', '등등', '전', '후', 
@@ -49,9 +49,15 @@ class AI:
         # 한글과 띄어쓰기 외 모든 문자 제거
         text = re.sub(r'[^가-힣\s]', '', text)
         # 명사 추출
-        tokens = okt.nouns(text)
+        tokens = kiwi.tokenize(text)
         # 불용어 제거
-        filtered_tokens = [word for word in tokens if word not in korean_stopwords and len(word) > 1]
+        filtered_tokens = list()
+        for token in tokens:
+            if ((token.tag.startswith('N'))
+                and (len(token.form) > 1)
+                and (token.form not in korean_stopwords)):
+                filtered_tokens.append(token.form)
+
         return filtered_tokens
 
     def vectorize(self, text:str):
