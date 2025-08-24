@@ -1,11 +1,14 @@
+from typing import Literal
 import re
 import numpy as np
+from django.core.cache import cache
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException
 from konlpy.tag import Okt
 from gensim.models import KeyedVectors
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.choices import ProfileChoices
+from utils.constants import CacheKey
 from utils.decorators import require_profile
 from proposals.models import Proposal
 from proposals.serializers import ProposalListSerializer
@@ -82,8 +85,31 @@ class RecommendationScrapService:
             raise APIException('AI 모델을 불러오지 못했어요. 관리자에게 문의하세요.')
         self.ai = AI(word2vec_model)
 
+    def _calc_vectors(self, cache_key:CacheKey, posts, option:Literal['vector']|None=None):
+        valid_vectors = list()
+        for post in posts:
+            vector = cache.get(cache_key.format(post.id))
+            if not vector:
+                # 각 게시물 벡터 계산
+                vector = self.ai.vectorize(post.title + post.content)
+                cache.set(cache_key.format(post.id), vector, timeout=365*24*60*60*1) # 수정 불가능하여 데이터가 변경되는 경우가 없으므로 1년 캐싱
+            # 유효한 벡터만 필터링
+            if vector is not None:
+                if option == 'vector':
+                    valid_vectors.append(vector)
+                else:
+                    valid_vectors.append((post, vector))
+        return valid_vectors
+
     @require_profile(ProfileChoices.founder)
     def recommend_founder_scrap_proposal(self):
+        cached_result = cache.get(CacheKey.RECOMMENDED_PROPOSALS.format(
+            profile=ProfileChoices.founder.value,
+            user_id=self.request.user.id,
+        ))
+        if cached_result:
+            return cached_result
+
         # 사용자가 스크랩한 최신 제안 10개 가져오기
         scrapped_proposals = Proposal.objects.filter(
             founder_scrap_proposal__user=self.request.user,
@@ -93,13 +119,12 @@ class RecommendationScrapService:
         if not scrapped_proposals:
             raise NotFound('스크랩한 제안이 없어요.')
 
-        valid_scrapped_proposals_vectors = list()
-        for proposal in scrapped_proposals:
-            # 각 제안 벡터 계산
-            vector = self.ai.vectorize(proposal.title + proposal.content)
-            # 유효한 벡터만 필터링
-            if vector is not None:
-                valid_scrapped_proposals_vectors.append(vector)
+        # 스크랩한 제안 벡터 계산하기
+        valid_scrapped_proposals_vectors = self._calc_vectors(
+            cache_key=CacheKey.PROPOSAL_VECTOR,
+            posts=scrapped_proposals,
+            option='vector',
+        )
         if not valid_scrapped_proposals_vectors:
             raise ValidationError('스크랩한 제안의 내용이 유효하지 않아요.')
 
@@ -114,14 +139,11 @@ class RecommendationScrapService:
             ProfileChoices.founder.value,
         )
 
-        ### 캐싱 필요 ###
-        valid_proposals_and_vectors = list()
-        for proposal in proposals:
-            # 각 제안 벡터 계산
-            vector = self.ai.vectorize(proposal.title + proposal.content)
-            # 유효한 벡터만 필터링
-            if vector is not None:
-                valid_proposals_and_vectors.append((proposal, vector))
+        # 추천 후보군 제안 벡터 계산하기
+        valid_proposals_and_vectors = self._calc_vectors(
+            cache_key=CacheKey.PROPOSAL_VECTOR,
+            posts=proposals,
+        )
 
         # 코사인 유사도 계산
         similarity_scores = self.ai.calc_cosine_similarity(
@@ -138,7 +160,17 @@ class RecommendationScrapService:
 
         top_recommended_proposals = [proposal for (proposal, vector), score in recommended_proposals_with_scores][:3]
         serializer = ProposalListSerializer(top_recommended_proposals, many=True)
-        return serializer.data
+        result = serializer.data
+
+        cache.set(
+            CacheKey.RECOMMENDED_PROPOSALS.format(
+                profile=ProfileChoices.founder.value,
+                user_id=self.request.user.id,
+            ),
+            result,
+            timeout=60*60*1, # 1시간 캐싱
+        )
+        return result
 
 class RecommendationCalcService:
     def __init__(self, request:HttpRequest):
