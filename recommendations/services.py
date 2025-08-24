@@ -93,10 +93,13 @@ class RecommendationScrapService:
         if not scrapped_proposals:
             raise NotFound('스크랩한 제안이 없어요.')
 
-        # 각 제안 벡터 계산
-        scrapped_proposals_vectors = [self.ai.vectorize(proposal.title+proposal.content) for proposal in scrapped_proposals]
-        # 유효한 벡터만 필터링
-        valid_scrapped_proposals_vectors = [vector for vector in scrapped_proposals_vectors if vector is not None]
+        valid_scrapped_proposals_vectors = list()
+        for proposal in scrapped_proposals:
+            # 각 제안 벡터 계산
+            vector = self.ai.vectorize(proposal.title + proposal.content)
+            # 유효한 벡터만 필터링
+            if vector is not None:
+                valid_scrapped_proposals_vectors.append(vector)
         if not valid_scrapped_proposals_vectors:
             raise ValidationError('스크랩한 제안의 내용이 유효하지 않아요.')
 
@@ -112,10 +115,13 @@ class RecommendationScrapService:
         )
 
         ### 캐싱 필요 ###
-        # 각 제안 벡터 계산
-        proposals_vectors = [self.ai.vectorize(proposal.title+proposal.content) for proposal in proposals]
-        # 유효한 벡터만 필터링 (제안에 대한 벡터 생성)
-        valid_proposals_and_vectors = [(proposal, vector) for proposal, vector in zip(proposals, proposals_vectors) if vector is not None]
+        valid_proposals_and_vectors = list()
+        for proposal in proposals:
+            # 각 제안 벡터 계산
+            vector = self.ai.vectorize(proposal.title + proposal.content)
+            # 유효한 벡터만 필터링
+            if vector is not None:
+                valid_proposals_and_vectors.append((proposal, vector))
 
         # 코사인 유사도 계산
         similarity_scores = self.ai.calc_cosine_similarity(
