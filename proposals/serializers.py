@@ -131,6 +131,54 @@ class ProposalMapItemSerializer(ProposalListSerializer):
         if profile == "founder":
             data.pop("is_liked", None)
         return data
+    
+class ProposalZoomFounderItemSerializer(ProposalListSerializer):
+    has_funding = serializers.BooleanField()
+    likes_analysis = serializers.SerializerMethodField()
+
+    class Meta(ProposalListSerializer.Meta):
+        fields = ProposalListSerializer.Meta.fields + ("has_funding", "likes_analysis")
+
+    def get_likes_analysis(self, obj: Proposal):
+        # ProposalDetailSerializer의 founder 분기와 동일 로직 (position 없이)
+        addr = obj.address or {}
+        total = getattr(obj, "likes_count", 0)
+        local = (
+            ProposerLikeProposal.objects
+            .filter(
+                proposal=obj,
+                user__proposer_level__address__sido=addr.get("sido"),
+                user__proposer_level__address__sigungu=addr.get("sigungu"),
+                user__proposer_level__address__eupmyundong=addr.get("eupmyundong"),
+            )
+            .values("user_id").distinct().count()
+        )
+        stranger = max(total - local, 0)
+        return {
+            "local_count": local,
+            "stranger_count": stranger,
+            "local_ratio": f"{round((local/total)*100)}%" if total else "0%",
+        }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # founder는 좋아요 불가 → is_liked 제거
+        data.pop("is_liked", None)
+        # business_hours 오전/오후 포맷 (position은 애초에 없음)
+        bh = instance.business_hours or {}
+        out_bh = {}
+        for key in ("start", "end"):
+            val = bh.get(key)
+            if isinstance(val, str) and ":" in val:
+                try:
+                    hour, minute = map(int, val.split(":"))
+                    out_bh[key] = f"{'오전' if hour < 12 else '오후'} {hour % 12 or 12}시"
+                except Exception:
+                    out_bh[key] = val
+            else:
+                out_bh[key] = val
+        data["business_hours"] = out_bh
+        return data
 
 
 class ProposalDetailSerializer(ProposalMapItemSerializer):

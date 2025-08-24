@@ -12,12 +12,14 @@ from utils.decorators import validate_path_choices
 from maps.services import GeocodingService
 from utils.helpers import resolve_viewer_addr
 from .models import Proposal
+from collections import OrderedDict
 from .serializers import (
     ProposalCreateSerializer,
-    ProposalMapItemSerializer,
+    ProposalListSerializer,
     ProposalDetailSerializer,
     ProposalMyCreatedItemSerializer,
-    ProposalIdSerializer
+    ProposalIdSerializer,
+    ProposalZoomFounderItemSerializer
 )
 from .services import (
   ProposerLikeProposalService, 
@@ -115,8 +117,9 @@ class ProposalsZoom(APIView):
                     .filter(funding__isnull=True)
                     .with_analytics()
                     .with_level_area(sido=sido, sigungu=sigungu, eupmyundong=eupmyundong)
-                    .filter_industry_choice(industry)          # ← 여기서만 industry 유효성/필터
+                    .filter_industry_choice(industry)
                     .with_user()
+                    .with_has_funding()  # founder 응답에서 필요
                 )
                 viewer_addr = resolve_viewer_addr(request.user, profile)
                 qs = qs.with_flags(user=request.user, profile=profile, viewer_addr=viewer_addr)
@@ -124,12 +127,35 @@ class ProposalsZoom(APIView):
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            data = ProposalMapItemSerializer(
-                qs, many=True, context={"request": request, "profile": profile}
-            ).data
+            prof = (profile or "").lower()
+            groups = OrderedDict()
 
-            ### 응답 송신 ###
-            return Response(data, status=status.HTTP_200_OK)
+            for obj in qs:
+                pos = obj.position or {}
+                lat = pos.get("latitude")
+                lng = pos.get("longitude")
+                key = (lat, lng)
+
+                if key not in groups:
+                    groups[key] = {
+                        "position": {"latitude": lat, "longitude": lng},  # ← 그룹 바깥에만 position
+                        "proposals": [],
+                    }
+
+                if prof == "founder":
+                    item = ProposalZoomFounderItemSerializer(
+                        obj, context={"request": request}
+                    ).data
+                else:  # proposer
+                    # proposer도 아이템 내부에 position 없어야 하므로 ProposalListSerializer 사용
+                    item = ProposalListSerializer(
+                        obj, context={"request": request}
+                    ).data
+
+                groups[key]["proposals"].append(item)
+
+            return Response(list(groups.values()), status=status.HTTP_200_OK)
+
 
         # 클러스터(시도/시군구/읍면동)
         if zoom == ZoomChoices.M10000:
