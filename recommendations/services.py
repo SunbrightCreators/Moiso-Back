@@ -61,7 +61,7 @@ class AI:
             return None
 
         # 단어 벡터들의 평균을 게시물 벡터로 사용
-        return sum(vectors) / len(vectors)
+        return np.mean(vectors, axis=0)
 
     def calc_cosine_similarity(self, source_vector, comparison_vectors):
         """
