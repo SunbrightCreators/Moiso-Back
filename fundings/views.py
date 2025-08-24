@@ -8,10 +8,11 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from utils.decorators import validate_path_choices
 from utils.helpers import resolve_viewer_addr
+from collections import OrderedDict
 
 from utils.choices import ProfileChoices, ZoomChoices, FundingStatusChoices
 from maps.services import GeocodingService
-from .serializers import FundingIdSerializer, FundingMapSerializer
+from .serializers import FundingIdSerializer, FundingListSerializer
 from .models import Funding
 from .services import (
     ProposerLikeFundingService, 
@@ -138,7 +139,7 @@ class FundingMapView(APIView):
          # 서비스 호출
         svc = FundingMapService(request)
         
-        # 동 이하(0): 상세 리스트
+        # ── GET /fundings/{profile}/{zoom} : 지도 상세(동 이하, zoom=0) ─────────────────
         if zoom == ZoomChoices.M0:
             try:
                 qs = (
@@ -155,17 +156,63 @@ class FundingMapView(APIView):
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            data = FundingMapSerializer(
-                qs, many=True,
-                context={
-                    "request": request, 
-                    "profile": profile, 
-                    "geocoder": geocoder,
-                    "viewer_addr": viewer_addr
+            prof = (profile or "").lower()
+            viewer_addr = resolve_viewer_addr(request.user, profile)
+
+            from collections import OrderedDict
+            groups = OrderedDict()
+            geocode_cache: dict[tuple[str, str, str], tuple[float | None, float | None]] = {}
+
+            for f in qs:
+                # 1) 주소 삼종세트로만 그룹키를 만든다 (개별 proposal.position 사용 X)
+                addr = (getattr(f.proposal, "address", {}) or {})
+                addr_key = (addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong"))
+                if not all(addr_key):
+                    # 주소가 불완전하면 스킵(혹은 필요 시 별도 처리)
+                    continue
+
+                # 2) 지오코딩 결과를 캐시해서 동일 동은 동일 좌표 사용
+                if addr_key not in geocode_cache:
+                    full_addr = " ".join(addr_key)
+                    try:
+                        pos = geocoder.get_address_to_position(query_address=full_addr) or {}
+                    except Exception:
+                        pos = {}
+                    lat = pos.get("latitude")
+                    lng = pos.get("longitude")
+                    # 미세 오차 정규화 (그리드 스냅) → 같은 동이면 항상 같은 키
+                    if lat is not None and lng is not None:
+                        try:
+                            lat = round(float(lat), 6)
+                            lng = round(float(lng), 6)
+                        except Exception:
+                            lat, lng = None, None
+                    geocode_cache[addr_key] = (lat, lng)
+
+                lat, lng = geocode_cache[addr_key]
+                if lat is None or lng is None:
+                    continue
+
+                key = (lat, lng)
+                if key not in groups:
+                    groups[key] = {
+                        "position": {"latitude": lat, "longitude": lng},  # ← 바깥에만 position
+                        "fundings": [],
                     }
-            ).data
-            # proposer: is_liked/is_scrapped, founder: is_scrapped만 (serializer에서 제거)
-            return Response(data, status=status.HTTP_200_OK)
+
+                # 3) 아이템 내부에는 position을 넣지 않는다
+                item = FundingListSerializer(
+                    f,
+                    context={
+                        "request": request,
+                        "profile": prof,          # founder면 is_liked 제거됨
+                        "viewer_addr": viewer_addr,  # is_address 계산용
+                    },
+                ).data
+                groups[key]["fundings"].append(item)
+
+            return Response(list(groups.values()), status=status.HTTP_200_OK)
+
 
         # 클러스터(시도/시군구/읍면동)
         if zoom == ZoomChoices.M10000:
