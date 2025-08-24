@@ -1,8 +1,14 @@
 import re
 import numpy as np
+from django.http import HttpRequest
+from rest_framework.exceptions import ValidationError, NotFound, APIException
 from konlpy.tag import Okt
 from gensim.models import KeyedVectors
 from sklearn.metrics.pairwise import cosine_similarity
+from utils.choices import ProfileChoices
+from utils.decorators import require_profile
+from proposals.models import Proposal
+from proposals.serializers import ProposalListSerializer
 
 okt = Okt()
 korean_stopwords = [
@@ -89,6 +95,63 @@ class AI:
         # 코사인 유사도 계산
         similarity_scores = cosine_similarity(source_vector, comparison_vectors)
         return similarity_scores[0]
+
+class RecommendationScrapService:
+    def __init__(self, request:HttpRequest):
+        self.request = request
+        self.ai = AI()
+
+    @require_profile(ProfileChoices.founder)
+    def recommend_founder_scrap_proposal(self):
+        # 사용자가 스크랩한 최신 제안 10개 가져오기
+        scrapped_proposals = Proposal.objects.filter(
+            founder_scrap_proposal__user=self.request.user,
+        ).order_by(
+            '-created_at',
+        )[:10]
+        if not scrapped_proposals:
+            raise NotFound('스크랩한 제안이 없어요.')
+
+        # 각 제안 벡터 계산
+        scrapped_proposals_vectors = [self.ai.vectorize(proposal.title+proposal.content) for proposal in scrapped_proposals]
+        # 유효한 벡터만 필터링
+        valid_scrapped_proposals_vectors = [vector for vector in scrapped_proposals_vectors if vector is not None]
+        if not valid_scrapped_proposals_vectors:
+            raise ValidationError('스크랩한 제안의 내용이 유효하지 않아요.')
+
+        # 모든 유효한 벡터를 평균하여 대표 벡터 생성
+        source_vector = np.mean(valid_scrapped_proposals_vectors, axis=0)
+
+        # 스크랩한 제안 제외 + 업종 필터링
+        proposals = Proposal.objects.exclude(
+            founder_scrap_proposal__user=self.request.user,
+        ).filter_user_industry(
+            self.request.user,
+            ProfileChoices.founder.value,
+        )
+
+        ### 캐싱 필요 ###
+        # 각 제안 벡터 계산
+        proposals_vectors = [self.ai.vectorize(proposal.title+proposal.content) for proposal in proposals]
+        # 유효한 벡터만 필터링 (제안에 대한 벡터 생성)
+        valid_proposals_and_vectors = [(proposal, vector) for proposal, vector in zip(proposals, proposals_vectors) if vector is not None]
+
+        # 코사인 유사도 계산
+        similarity_scores = self.ai.calc_cosine_similarity(
+            source_vector=source_vector,
+            comparison_vectors=[vector for proposal, vector in valid_proposals_and_vectors],
+        )
+
+        # 유사도 점수 기반 추천 목록 정렬
+        recommended_proposals_with_scores = sorted(
+            zip(valid_proposals_and_vectors, similarity_scores),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+
+        top_recommended_proposals = [proposal for (proposal, vector), score in recommended_proposals_with_scores][:3]
+        serializer = ProposalListSerializer(top_recommended_proposals, many=True)
+        return serializer.data
 
 class RecommendationCalcService:
     def __init__(self, request:HttpRequest):
