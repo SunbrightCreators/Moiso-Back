@@ -3,6 +3,7 @@ import heapq
 import re
 import numpy as np
 from django.core.cache import cache
+from django.db.models import Q
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException
 from konlpy.tag import Okt
@@ -137,9 +138,10 @@ class RecommendationScrapService:
         # 모든 유효한 벡터를 평균하여 대표 벡터 생성
         source_vector = np.mean(valid_scrapped_proposals_vectors, axis=0)
 
-        # 스크랩한 제안 제외 + 업종 필터링
+        # 스크랩한 제안 또는 펀딩 있는 제안 제외 + 업종 필터링
         proposals = Proposal.objects.exclude(
-            founder_scrap_proposal__user=self.request.user,
+            Q(founder_scrap_proposal__user=self.request.user)
+            | Q(funding__is_null=False)
         ).filter_user_industry(
             self.request.user,
             ProfileChoices.founder.value,
