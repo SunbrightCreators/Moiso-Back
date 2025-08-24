@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from utils.choices import ProfileChoices, ZoomChoices
 from utils.decorators import validate_path_choices
 from maps.services import GeocodingService
+from utils.helpers import resolve_viewer_addr
 from .models import Proposal
 from .serializers import (
     ProposalCreateSerializer,
@@ -117,8 +118,7 @@ class ProposalsZoom(APIView):
                     .filter_industry_choice(industry)          # ← 여기서만 industry 유효성/필터
                     .with_user()
                 )
-                prof_obj = getattr(request.user, profile, None)
-                viewer_addr = (getattr(prof_obj, "address", None) or {}) if prof_obj else {}
+                viewer_addr = resolve_viewer_addr(request.user, profile)
                 qs = qs.with_flags(user=request.user, profile=profile, viewer_addr=viewer_addr)
                 qs = qs.order_by_choice(order)
             except ValueError as e:
@@ -141,8 +141,22 @@ class ProposalsZoom(APIView):
 
         # 중심좌표(지오코딩) + is_address 가공은 뷰에서
         geocoder = GeocodingService(request)
-        prof_obj = getattr(request.user, profile, None)
-        viewer_addr = (getattr(prof_obj, "address", None) or {}) if prof_obj else {}
+        viewer_addr = resolve_viewer_addr(request.user, profile)
+
+        def _match(viewer, *, sido=None, sigungu=None, eup=None) -> bool:
+            if not viewer:
+                return False
+            def _one(a: dict) -> bool:
+                if not isinstance(a, dict): return False
+                if sido and a.get("sido") != sido: return False
+                if sigungu is not None and a.get("sigungu") != sigungu: return False
+                if eup is not None and a.get("eupmyundong") != eup: return False
+                return True
+            if isinstance(viewer, list):
+                return any(_one(a) for a in viewer)
+            if isinstance(viewer, dict):
+                return _one(viewer)
+            return False
 
         result = []
         for idx, row in enumerate(grouped, start=1):
@@ -150,23 +164,13 @@ class ProposalsZoom(APIView):
 
             if zoom == ZoomChoices.M10000:
                 full_addr = addr_text
-                is_address = bool(viewer_addr) and viewer_addr.get("sido") == addr_text
+                is_address = _match(viewer_addr, sido=addr_text)
             elif zoom == ZoomChoices.M2000:
                 full_addr = f"{sido} {addr_text}"
-                is_address = (
-                    bool(viewer_addr)
-                    and viewer_addr.get("sido") == sido
-                    and viewer_addr.get("sigungu") == addr_text
-                )
+                is_address = _match(viewer_addr, sido=sido, sigungu=addr_text)
             else:  # M500
                 full_addr = f"{sido} {sigungu} {addr_text}"
-                is_address = (
-                    bool(viewer_addr)
-                    and viewer_addr.get("sido") == sido
-                    and viewer_addr.get("sigungu") == sigungu
-                    and viewer_addr.get("eupmyundong") == addr_text
-                )
-
+                is_address = _match(viewer_addr, sido=sido, sigungu=sigungu, eup=addr_text)
             # position 반환
             try:
                 pos = geocoder.get_address_to_position(query_address=full_addr)
@@ -204,10 +208,12 @@ class ProposalsPk(APIView):
             Proposal.objects
             .with_analytics()
             .with_user()  # select_related("user__user") 포함 역할
+            .with_has_funding() 
         )
+        viewer_addr = resolve_viewer_addr(request.user, profile)
+        qs = qs.with_flags(user=request.user, profile=profile, viewer_addr=viewer_addr)
 
         proposal = get_object_or_404(qs, pk=proposal_id)
-
         serializer = ProposalDetailSerializer(
             proposal,
             context={"request": request, "profile": profile},

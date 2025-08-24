@@ -2,8 +2,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from utils.choices import IndustryChoices, RadiusChoices
 from utils.serializer_fields import HumanizedDateTimeField
-from fundings.models import Funding
-from .models import Proposal
+from .models import Proposal, ProposerLikeProposal
 from accounts.models import ProposerLevel
 
 # ── 생성용 ────────────────────────────────────────────────────────────────
@@ -124,18 +123,21 @@ class ProposalMapItemSerializer(ProposalListSerializer):
     def get_position(self, obj: Proposal):
         pos = obj.position or {}
         return {"latitude": pos.get("latitude"), "longitude": pos.get("longitude")}
+    
+    # founder 모드일 때 is_liked 제거
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        profile = (self.context.get("profile") or "").lower()
+        if profile == "founder":
+            data.pop("is_liked", None)
+        return data
 
 
 class ProposalDetailSerializer(ProposalMapItemSerializer):
-    is_liked = serializers.SerializerMethodField()
-    is_scrapped = serializers.SerializerMethodField()
-    is_address = serializers.SerializerMethodField()
-    has_funding = serializers.SerializerMethodField()
+    has_funding = serializers.BooleanField()
 
     class Meta(ProposalMapItemSerializer.Meta):
-        fields = tuple(
-            f for f in ProposalMapItemSerializer.Meta.fields if f != "is_address"
-        ) + ("has_funding",)
+        fields = ProposalMapItemSerializer.Meta.fields + ("has_funding",)
 
 
     def get_user(self, obj: Proposal):
@@ -164,61 +166,23 @@ class ProposalDetailSerializer(ProposalMapItemSerializer):
         return base
 
 
-    # --- is_* 계산 ---
-    def get_is_liked(self, obj):
-        request = self.context.get("request")
-        profile = (self.context.get("profile") or "").lower()
-        if not request or not getattr(request.user, "is_authenticated", False):
-            return False
-        if profile != "proposer":
-            return False
-        from .models import ProposerLikeProposal
-        return ProposerLikeProposal.objects.filter(
-            proposal=obj, user=request.user.proposer
-        ).exists()
-
-    def get_is_scrapped(self, obj):
-        request = self.context.get("request")
-        profile = (self.context.get("profile") or "").lower()
-        if not request or not getattr(request.user, "is_authenticated", False):
-            return False
-        if profile == "proposer":
-            from .models import ProposerScrapProposal
-            return ProposerScrapProposal.objects.filter(
-                proposal=obj, user=request.user.proposer
-            ).exists()
-        if profile == "founder":
-            from .models import FounderScrapProposal
-            return FounderScrapProposal.objects.filter(
-                proposal=obj, user=request.user.founder
-            ).exists()
-        return False
-    
     def to_representation(self, instance):
         data = super().to_representation(instance)
 
-        # business_hours 오전/오후 포맷 (인라인, 원문 로직 유지)
         bh = instance.business_hours or {}
         for key in ("start", "end"):
             val = bh.get(key)
             if isinstance(val, str) and ":" in val:
                 try:
-                    hour, minute = map(int, val.split(':'))
-                    h = hour  # 원문 'h' 사용 보존
-                    bh[key] = f"{'오전' if hour < 12 else '오후'} {h % 12 or 12}시"
+                    hour, minute = map(int, val.split(":"))
+                    data["business_hours"][key] = f"{'오전' if hour < 12 else '오후'} {hour % 12 or 12}시"
                 except Exception:
                     pass
-        data["business_hours"] = bh
 
         profile = (self.context.get("profile") or "").lower()
-
         if profile == "founder":
-            # founder는 좋아요 불가 → 응답에서 필드 제거
-            data.pop("is_liked", None)
-
-            # founder 전용 likes_analysis 추가 (이 부분만 유지)
-            from .models import ProposerLikeProposal
-            addr = instance.address or {}
+            data.pop("is_liked", None) # founder는 좋아요 불가 → 제거 유지
+            addr = instance.address or {}  # founder 전용 likes_analysis
             total = data.get("likes_count", 0)
             local = (
                 ProposerLikeProposal.objects
@@ -236,11 +200,7 @@ class ProposalDetailSerializer(ProposalMapItemSerializer):
                 "stranger_count": stranger,
                 "local_ratio": f"{round((local/total)*100)}%" if total else "0%",
             }
-
-        return data
-
-    def get_has_funding(self, obj: Proposal) -> bool:
-        return Funding.objects.filter(proposal=obj).exists()
+        return data 
     
 
 class ProposalMyCreatedItemSerializer(serializers.ModelSerializer):

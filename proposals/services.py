@@ -168,3 +168,4 @@ class ProposalMapService:
         group = "address__eupmyundong"
         base = Proposal.objects.filter(address__sido=sido, address__sigungu=sigungu)
         return self._group_counts(base, group, industry)
+    

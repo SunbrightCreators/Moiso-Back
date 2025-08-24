@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import  Count, OuterRef, Exists, BooleanField, Case, When, Value, F, Max, Q
 from utils.choices import IndustryChoices
+from fundings.models import Funding
 from functools import reduce
 from operator import or_
 
@@ -121,4 +122,9 @@ class ProposalQuerySet(models.QuerySet):
             is_liked=like_expr,
             is_scrapped=scrap_expr,
             is_address=is_address_expr,
+        )
+    
+    def with_has_funding(self):
+        return self.annotate(
+            has_funding=Exists(Funding.objects.filter(proposal_id=OuterRef("pk")))
         )
