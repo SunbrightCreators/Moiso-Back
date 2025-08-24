@@ -35,12 +35,14 @@ class FundingListSerializer(serializers.ModelSerializer):
     is_scrapped = serializers.BooleanField(read_only=True, default=False)
     is_liked = serializers.BooleanField(read_only=True, default=False)
 
+    is_address = serializers.BooleanField(read_only=True, default=False)
+
     class Meta:
         model = Funding
         fields = (
             'id', 'industry', 'title', 'summary', 'expected_opening_date',
             'address', 'radius', 'progress', 'days_left', 'image', 'founder',
-            'schedule', 'likes_count', 'scraps_count', 'is_liked','is_scrapped'
+            'schedule', 'likes_count', 'scraps_count', 'is_liked','is_scrapped', 'is_address',
         )
     def get_industry(self, obj):
         return obj.proposal.get_industry_display()
@@ -109,10 +111,54 @@ class FundingListSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
+
         profile = (self.context.get("profile") or "").lower()
         if profile == "founder":
             data.pop("is_liked", None)
+
+        # ✅ 폴백: viewer_addr가 없으면 request/profile로 복원
+        viewer_addr = self.context.get("viewer_addr")
+        if viewer_addr is None:
+            try:
+                from utils.helpers import resolve_viewer_addr
+                req = self.context.get("request")
+                usr = getattr(req, "user", None)
+                viewer_addr = resolve_viewer_addr(usr, profile)
+            except Exception:
+                viewer_addr = None
+
+        proposal_addr = data.get("address") or {}
+        data["is_address"] = self._compute_is_address(
+            viewer_addr=viewer_addr,
+            proposal_addr=proposal_addr,
+        )
         return data
+    
+    def _compute_is_address(self, *, viewer_addr, proposal_addr: dict) -> bool:
+        """viewer_addr(단일 dict 또는 list)와 proposal_addr가 시/군구/읍면동까지 모두 일치하면 True"""
+        if not proposal_addr:
+            return False
+        sido = proposal_addr.get("sido")
+        sigungu = proposal_addr.get("sigungu")
+        eup = proposal_addr.get("eupmyundong")
+
+        def _one(a: dict) -> bool:
+            if not isinstance(a, dict): 
+                return False
+            return (
+                a.get("sido") == sido and
+                a.get("sigungu") == sigungu and
+                a.get("eupmyundong") == eup
+            )
+
+        v = viewer_addr
+        if not v:
+            return False
+        if isinstance(v, list):
+            return any(_one(a) for a in v)
+        if isinstance(v, dict):
+            return _one(v)
+        return False
 
 
 #  지도 상세 리스트용(동 이하): position 추가
@@ -171,13 +217,14 @@ class FundingDetailBaseSerializer(FundingListSerializer):
     policy = serializers.CharField()
     expected_problem = serializers.CharField()
     proposal = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta(FundingListSerializer.Meta):
         fields = FundingListSerializer.Meta.fields + (
             "position",
             "goal_amount", "video", "amount_description", "schedule_description",
             "content", "business_hours", "reward", "contact", "policy",
-            "expected_problem", "proposal",
+            "expected_problem", "proposal", "status",
         )
     
     # 상세는 제안글의 좌표 사용
@@ -230,7 +277,7 @@ class FundingDetailBaseSerializer(FundingListSerializer):
         rel = None
         if isinstance(pi, str) and pi:
             rel = pi
-        elif hasattr(pi, "url"):
+        elif getattr(pi, "name", None):  # 파일이 실제로 연결되어 있을 때만
             try:
                 rel = pi.url
             except Exception:
@@ -293,6 +340,10 @@ class FundingDetailBaseSerializer(FundingListSerializer):
             # 명세: founder 응답에는 is_liked 불포함
             data.pop("is_liked", None)
         return data
+    
+    def get_status(self, obj):
+        # choices의 display(예: '진행 중') 반환
+        return obj.get_status_display()
 
 
 class FundingDetailProposerSerializer(FundingDetailBaseSerializer):

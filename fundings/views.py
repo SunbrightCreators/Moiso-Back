@@ -4,8 +4,10 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from utils.decorators import validate_path_choices
+from utils.helpers import resolve_viewer_addr
 
 from utils.choices import ProfileChoices, ZoomChoices, FundingStatusChoices
 from maps.services import GeocodingService
@@ -124,10 +126,16 @@ class FundingMapView(APIView):
             return Response(
                 {"detail": "sido, sigungu, eupmyundong 쿼리 파라미터가 모두 필요합니다."}, 
                 status=status.HTTP_400_BAD_REQUEST)
-        
+    
         # 중심좌표(지오코딩)
-        geocoder = GeocodingService(request)
-        # 서비스 호출
+        try:
+            geocoder = GeocodingService(request)  # 시그니처가 request를 받는 경우
+        except TypeError:
+            geocoder = GeocodingService()
+
+        viewer_addr = resolve_viewer_addr(request.user, profile)
+
+         # 서비스 호출
         svc = FundingMapService(request)
         
         # 동 이하(0): 상세 리스트
@@ -149,7 +157,12 @@ class FundingMapView(APIView):
 
             data = FundingMapSerializer(
                 qs, many=True,
-                context={"request": request, "profile": profile, "geocoder": geocoder}
+                context={
+                    "request": request, 
+                    "profile": profile, 
+                    "geocoder": geocoder,
+                    "viewer_addr": viewer_addr
+                    }
             ).data
             # proposer: is_liked/is_scrapped, founder: is_scrapped만 (serializer에서 제거)
             return Response(data, status=status.HTTP_200_OK)
@@ -161,18 +174,35 @@ class FundingMapView(APIView):
             grouped = svc.cluster_counts_sigungu(sido, industry)
         else:  # M500
             grouped = svc.cluster_counts_eupmyundong(sido, sigungu, industry)
-        
 
+        def _match(viewer, *, sido=None, sigungu=None, eup=None) -> bool:
+            if not viewer:
+                return False
+            def _one(a: dict) -> bool:
+                if not isinstance(a, dict): return False
+                if sido and a.get("sido") != sido: return False
+                if sigungu is not None and a.get("sigungu") != sigungu: return False
+                if eup is not None and a.get("eupmyundong") != eup: return False
+                return True
+            if isinstance(viewer, list):
+                return any(_one(a) for a in viewer)
+            if isinstance(viewer, dict):
+                return _one(viewer)
+            return False
+        
 
         result = []
         for idx, row in enumerate(grouped, start=1):
             addr_text = row["address"]
             if zoom == ZoomChoices.M10000:
                 full_addr = addr_text
+                is_addr = _match(viewer_addr, sido=addr_text)
             elif zoom == ZoomChoices.M2000:
                 full_addr = f"{sido} {addr_text}"
+                is_addr = _match(viewer_addr, sido=sido, sigungu=addr_text)
             else:
                 full_addr = f"{sido} {sigungu} {addr_text}"
+                is_addr = _match(viewer_addr, sido=sido, sigungu=sigungu, eup=addr_text)
 
             # position 반환
             try:
@@ -185,6 +215,8 @@ class FundingMapView(APIView):
                 "address": addr_text,
                 "position": pos,
                 "number": row["number"],
+                "is_address": is_addr,
+
             })
         return Response(result, status=status.HTTP_200_OK)
 
@@ -196,8 +228,15 @@ class FundingDetailView(APIView):
 
     def get(self, request: HttpRequest, funding_id: int, profile: str, *args, **kwargs):
         svc = FundingDetailService(request)
-        data = svc.get(funding_id, profile)
+        profile = (profile or "").lower()
+        if profile == ProfileChoices.proposer.value:
+            data = svc.get_for_proposer(funding_id)   # ← 없으면 403
+        elif profile == ProfileChoices.founder.value:
+            data = svc.get_for_founder(funding_id)    # ← 없으면 403
+        else:
+            raise PermissionDenied("허용되지 않은 profile 입니다. (founder|proposer)")
         return Response(data, status=status.HTTP_200_OK)
+
     
 class FounderMyCreatedView(APIView):
     """

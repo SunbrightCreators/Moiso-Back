@@ -1,13 +1,16 @@
 from __future__ import annotations
 from typing import List, Dict, Optional
+from collections import defaultdict
 from django.db.models import QuerySet, Count, Max
 from datetime import datetime
 from django.utils import timezone
 from datetime import timedelta
 from django.http import HttpRequest
+from django.db import transaction
 from rest_framework.exceptions import PermissionDenied
 from utils.choices import ProfileChoices, FundingStatusChoices, PaymentStatusChoices, IndustryChoices, RewardCategoryChoices
 from utils.decorators import require_profile
+from utils.helpers import resolve_viewer_addr
 from django.apps import apps as django_apps  
 from django.core.exceptions import FieldError, ImproperlyConfigured
 from .models import Funding, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding, ProposerReward
@@ -180,38 +183,52 @@ CANCELABLE_WINDOW = timedelta(days=7) # 승인 후 7일 내 취소 가능
 
 # 노션 참고함
 def build_my_payment_block(funding, user):
-    if not user.is_authenticated:
-        return None
+
+    base = {"has_paid": False, "can_cancel": False, "last_paid_at": None}
+
+    if not getattr(user, "is_authenticated", False):
+        return base
+    
+    proposer = getattr(user, "proposer", None)
+    if proposer is None:
+        return base
 
     qs = Payment.objects.filter(
         funding_id=funding.id,
-        user_id=user.id,
-        status=PaymentStatusChoices.DONE,  # 상태: PaymentStatusChoices.DONE = 승인완료.
+        user_id=proposer.id, 
+        status=PaymentStatusChoices.DONE,
     )
+
     # 마지막 결제(승인) 시각
     last_payment = qs.order_by("-approved_at", "-pk").first()
-
-    has_paid = last_payment is not None
-    last_paid_at = None
-    if last_payment and last_payment.approved_at:
-        last_paid_at = timezone.localtime(last_payment.approved_at)
-
-    # 간단 취소 가능 규칙: 승인 후 7일 내
-    can_cancel = False
-    if last_payment and last_payment.approved_at:
-        can_cancel = (timezone.now() - last_payment.approved_at) <= CANCELABLE_WINDOW
-
+    if not last_payment:
+        return base
     
-    return {
-        "has_paid": has_paid,
-        "can_cancel": can_cancel,
-        "last_paid_at": last_paid_at,
-    }
+    # 결제 이력 존재
+    base["has_paid"] = True
+    # last_paid_at: ISO8601(+TZ)로 직렬화
+    if last_payment.approved_at:
+        base["last_paid_at"] = timezone.localtime(last_payment.approved_at).isoformat()
+
+        # 승인 후 7일 내 취소 가능
+        base["can_cancel"] = (timezone.now() - last_payment.approved_at) <= CANCELABLE_WINDOW
+
+    return base
 
 # schedule 중 end 값만
 def _schedule_end_dt(funding):
     try:
         return timezone.make_aware(datetime.strptime(funding.schedule["end"], "%Y-%m-%d"))
+    except Exception:
+        return None
+    
+# build_actions_block()에서 my_payment["last_paid_at"]는 지금 ISO 문자열인데, 여기에 바로 timezone.now() - ...를 빼고 있어요. 이건 타입 에러 납니다. 파싱해서 비교하도록 고쳐주세요:
+def _parse_iso_to_aware(dt_str: str):
+    try:
+        dt = datetime.fromisoformat(dt_str)  # "2025-08-18T16:40:12+09:00"
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+        return dt
     except Exception:
         return None
     
@@ -229,9 +246,11 @@ def build_actions_block(funding, user, my_payment):
     )
 
     can_cancel_last_payment = False
-    if my_payment and my_payment.get("last_paid_at"):
-        can_cancel_last_payment = (timezone.now() - my_payment["last_paid_at"]) <= CANCELABLE_WINDOW
-        
+    last_paid_raw = my_payment.get("last_paid_at") if my_payment else None
+    last_paid_at = _parse_iso_to_aware(last_paid_raw) if isinstance(last_paid_raw, str) else last_paid_raw
+    if last_paid_at:
+        can_cancel_last_payment = (now - last_paid_at) <= CANCELABLE_WINDOW
+
     return {"can_pay": can_pay, "can_cancel_last_payment": can_cancel_last_payment}
 
 def _get_eupmyundong_from_proposer(proposer) -> str | None:
@@ -278,7 +297,6 @@ def build_likes_analysis(funding: Funding) -> dict:
             "local_ratio": "0%",
         }
 
-
     try:
         total = ProposerLikeFunding.objects.filter(funding=funding).count()
         local = ProposerLikeFunding.objects.filter(
@@ -309,7 +327,6 @@ def build_likes_analysis(funding: Funding) -> dict:
     }
 
 class FundingDetailService:
-
     def __init__(self, request: HttpRequest):
         self.request = request
 
@@ -323,36 +340,38 @@ class FundingDetailService:
             .prefetch_related("reward")
             .get(id=funding_id)
         )
+    
+    @require_profile(ProfileChoices.proposer)    #403
+    def get_for_proposer(self, funding_id: int) -> dict:
+        funding = self._get_funding(funding_id, ProfileChoices.proposer.value)
+        my_payment = build_my_payment_block(funding, self.request.user)
+        viewer_addr = resolve_viewer_addr(self.request.user, ProfileChoices.proposer.value)  
+        ser = FundingDetailProposerSerializer(
+            funding,
+            context={
+                "request": self.request,
+                "profile": ProfileChoices.proposer.value,
+                "my_payment": my_payment,
+                "viewer_addr": viewer_addr,
+            },
+        )
+        return ser.data
 
-    def get(self, funding_id: int, profile: str) -> dict:
-        funding = self._get_funding(funding_id, profile)
-        profile = profile.lower()
-
-        if profile == ProfileChoices.proposer.value:
-            my_payment = build_my_payment_block(funding, self.request.user)
-            ser = FundingDetailProposerSerializer(
-                funding,
-                context={
-                    "request": self.request,
-                    "profile": profile,           # ← 중요: profile 전달
-                    "my_payment": my_payment,
-                },
-            )
-            return ser.data
-
-        if profile == ProfileChoices.founder.value:
-            likes_analysis = build_likes_analysis(funding)
-            ser = FundingDetailFounderSerializer(
-                funding,
-                context={
-                    "request": self.request,
-                    "profile": profile,           # ← 중요: profile 전달
-                    "likes_analysis": likes_analysis,
-                },
-            )
-            return ser.data
-
-        raise PermissionDenied("허용되지 않은 profile 입니다. (founder|proposer)")
+    @require_profile(ProfileChoices.founder)    #403
+    def get_for_founder(self, funding_id: int) -> dict:
+        funding = self._get_funding(funding_id, ProfileChoices.founder.value)
+        likes_analysis = build_likes_analysis(funding)
+        viewer_addr = resolve_viewer_addr(self.request.user, ProfileChoices.founder.value)
+        ser = FundingDetailFounderSerializer(
+            funding,
+            context={
+                "request": self.request,
+                "profile": ProfileChoices.founder.value,
+                "likes_analysis": likes_analysis,
+                "viewer_addr": viewer_addr, 
+            },
+        )
+        return ser.data
     
 
 class FounderMyCreatedFundingService:
@@ -401,7 +420,7 @@ class ProposerMyPaidFundingService:
         qs = (
             Funding.objects
             .filter(
-                payment__user_id=self.request.user.id,
+                payment__user_id=proposer.id,                 # ← CHANGED (기존: self.request.user.id)
                 payment__status=PaymentStatusChoices.DONE,
             )
             .annotate(last_paid_at=Max("payment__approved_at"))
@@ -438,124 +457,126 @@ class ProposerMyRewardsService:
             raise ValueError(f"Invalid category. Use one of {sorted(allowed)}.")
         return up
     
-    # 수정중! 종료된 펀딩의 '구매 리워드'를 cqy(수량)만큼 펼쳐서 dict 리스트로 반환
-    def _purchased_reward_entries(self, cat: Optional[str]) -> list[dict]:
+    @transaction.atomic
+    def _materialize_purchased_rewards(self) -> None:
         """
-        후원(Payment) 시 담았던 구매 리워드를, 펀딩이 종료된 경우에 한해
-        qty만큼 반복하여 응답용 아이템으로 확장한다.
-        - 모델 추정: pays.PaymentReward (payment FK, reward FK, cqy:int)
-        - 유연성: 필드명이 다르면 qty/quantity도 순차적으로 시도
-        - 상태: payment.status = DONE 이고 payment.funding.status ∈ {SUCCEEDED, FAILED}
-        - 카테고리: LEVEL은 제외, GIFT/COUPON만 해당
+        [핵심] 펀딩 성공(SUCCEEDED)한 결제들(DONE)을 모아
+        주문 당시 담았던 '구매 리워드'(GIFT/COUPON)를 수량만큼 ProposerReward로 발급.
+        - idempotent: 현재 보유 개수와 '구매 총 수량'을 비교해 부족분만 생성
+        - LEVEL 리워드는 구매/발급 대상에서 제외
         """
-        out: list[dict] = []
+        proposer = getattr(self.request.user, "proposer", None)
+        if proposer is None:
+            raise PermissionDenied("제안자 프로필이 필요해요.")
 
-        # pays.PaymentReward 모델을 동적으로 얻어와서, 존재하지 않으면 skip
-        try:
-            PaymentReward = django_apps.get_model("pays", "PaymentReward")
-        except Exception:
-            return out
-        if PaymentReward is None:
-            return out
-
-        qs = (
-            PaymentReward.objects
-            .select_related("reward", "payment", "payment__funding")
+        # 1) 내 결제 중 '승인 완료' + 해당 펀딩이 '성공' 인 것만 조회
+        pays_qs = (
+            Payment.objects
+            .select_related("order", "funding")
             .filter(
-                payment__user_id=self.request.user.id,
-                payment__status=PaymentStatusChoices.DONE,
-                payment__funding__status__in=FundingStatusChoices.SUCCEEDED,
+                user=proposer,
+                status=PaymentStatusChoices.DONE,
+                funding__status=FundingStatusChoices.SUCCEEDED,
             )
-            .order_by("-pk")
+            .order_by("approved_at", "pk")
         )
 
-        for item in qs:
-            reward = getattr(item, "reward", None)
-            payment = getattr(item, "payment", None)
-            funding = getattr(payment, "funding", None)
+        # 2) 구매 리워드 총 수량 집계: reward_id → qty 합
+        target_qty_map: dict[int, int] = defaultdict(int)
+        for p in pays_qs:
+            order = getattr(p, "order", None)
+            items = getattr(order, "items_json", []) if order else []
+            for it in items:
+                rid = it.get("reward_id")
+                qty = it.get("quantity", 1)
+                try:
+                    rid = int(rid)
+                    qty = int(qty)
+                except Exception:
+                    continue
+                if qty <= 0:
+                    continue
+                target_qty_map[rid] += qty
 
-            if not (reward and funding):
+        if not target_qty_map:
+            return
+
+        # 3) 리워드 메타 조회 (카테고리 확인용)
+        Reward = django_apps.get_model("fundings", "Reward")
+        reward_map = Reward.objects.filter(id__in=target_qty_map.keys()).in_bulk()
+
+        # 4) 리워드별로 현재 보유(ProposerReward) 개수와 비교 → 부족분만 bulk_create
+        to_create: list[ProposerReward] = []
+        for rid, target_qty in target_qty_map.items():
+            r = reward_map.get(rid)
+            if not r:
+                continue
+            if r.category == RewardCategoryChoices.LEVEL:
+                # 구매 발급 대상 아님
                 continue
 
-            # LEVEL은 구매리워드 취지에 맞지 않으므로 제외
-            # (쿼리 파라미터 cat 이 주어졌다면 그에 맞춰 필터)
-            rcat = getattr(reward, "category", None)
-            if rcat == "LEVEL":
-                continue
-            if cat and rcat != cat:
+            # 이미 보유 중인 개수
+            have = ProposerReward.objects.filter(user=proposer, reward_id=rid).count()
+            need = max(int(target_qty) - int(have), 0)
+            if need <= 0:
                 continue
 
-            # 수량 필드 탐색: cqy -> qty -> quantity
-            qty = (
-                getattr(item, "qty", None)
-                or getattr(item, "quantity", None)
-                or 1
-            )
-            try:
-                qty = int(qty)
-            except Exception:
-                qty = 1
-            qty = max(qty, 1)
+            # 부족분만큼 생성(같은 reward를 여러 장 발급)
+            to_create.extend(ProposerReward(user=proposer, reward=r) for _ in range(need))
 
-            base = {
-                # 구매건은 실체 쿠폰 id가 없을 수 있어 가상 id 부여 (충돌 방지 프리픽스)
-                "id": f"purchase:{getattr(item, 'id', 'x')}",
-                "category": reward.get_category_display(),         # "펀딩 할인쿠폰" 등
-                "business_name": getattr(funding, "business_name", None),
-                "title": getattr(reward, "title", ""),
-                "content": getattr(reward, "content", ""),
-                "amount": getattr(reward, "amount", 0),
-            }
+        if to_create:
+            ProposerReward.objects.bulk_create(to_create, ignore_conflicts=True)
 
-            # qty만큼 조건문 (각 아이템에 시퀀스 붙여 고유화)
-            for i in range(qty):
-                out.append({**base, "id": f"{base['id']}#{i+1}"})
-
-        return out
-
-    @require_profile(ProfileChoices.proposer)
-    def get(self, category: Optional[str]) -> Dict[str, List[dict]]:
-        cat = self._validate_and_norm_category(category)
-
-        # 내가 보유한 리워드들
-        prs = (
-            ProposerReward.objects
-            .filter(user=self.request.user.proposer)
-            .select_related("reward", "reward__funding")
-            .order_by("-pk")
-        )
-
+    def _serialize_response(
+        self, prs_qs, cat: Optional[str]
+    ) -> Dict[str, List[dict]]:
+        """
+        ProposerReward 쿼리셋을 명세 JSON으로 변환.
+        - funding_rewards: GIFT/COUPON (+ business_name)
+        - level_rewards:   LEVEL
+        - ?category= 필터 적용
+        """
         funding_rewards: List[dict] = []
         level_rewards: List[dict] = []
 
-        for pr in prs:
+        for pr in prs_qs.select_related("reward", "reward__funding"):
             r = pr.reward
             if not r:
                 continue
 
-            # 공통 필드
             base = {
                 "id": pr.id,                           # ProposerReward.id (nanoid)
-                "category": r.get_category_display(),  # 한글 라벨
+                "category": r.get_category_display(),  # "펀딩 할인쿠폰" / "펀딩 선물증정" / "레벨"
                 "title": r.title,
                 "content": r.content,
                 "amount": r.amount,
             }
 
             if r.category == RewardCategoryChoices.LEVEL:
-                # 쿼리 파라미터 필터
                 if cat and cat != "LEVEL":
                     continue
                 level_rewards.append(base)
             else:
-                # 펀딩 리워드(GIFT/COUPON)
                 if cat and r.category != cat:
                     continue
-                f = getattr(r, "funding", None)
-                funding_rewards.append({
-                    **base,
-                    "business_name": getattr(f, "business_name", None),
-                })
+                biz_name = getattr(getattr(r, "funding", None), "business_name", None)
+                funding_rewards.append({**base, "business_name": biz_name})
 
         return {"funding_rewards": funding_rewards, "level_rewards": level_rewards}
 
+    def _base_qs(self):
+        proposer = getattr(self.request.user, "proposer", None)
+        if proposer is None:
+            raise PermissionDenied("제안자 프로필이 필요해요.")
+        return ProposerReward.objects.filter(user=proposer)
+
+    def get(self, category: Optional[str]) -> Dict[str, List[dict]]:
+        # 0) 카테고리 검증
+        cat = self._validate_and_norm_category(category)
+
+        # 1) 먼저 “구매 리워드 발급 누락분”을 보충 (안전한 중복 방지)
+        self._materialize_purchased_rewards()
+
+        # 2) 보유 리워드 조회 후 직렬화
+        prs_qs = self._base_qs().order_by("-pk")
+        return self._serialize_response(prs_qs, cat)

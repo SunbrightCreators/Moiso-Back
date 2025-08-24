@@ -170,8 +170,8 @@ class Reward(models.Model):
     content = models.CharField(
          max_length=50,
     )
-    amount = models.PositiveSmallIntegerField(
-        choices=RewardAmountChoices.choices,
+    amount = models.PositiveIntegerField(
+    choices=RewardAmountChoices.choices,
     )
     expired_at = models.DateTimeField(
         null=True,
