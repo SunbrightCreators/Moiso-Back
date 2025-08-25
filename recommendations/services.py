@@ -24,6 +24,7 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce, NullIf
 from rest_framework.exceptions import PermissionDenied
+from proposals.serializers import ProposalCalcItemSerializer
 
 from utils.choices import ProfileChoices, FounderTargetChoices, IndustryChoices
 from utils.helpers import resolve_viewer_addr
@@ -509,10 +510,9 @@ class RecommendationCalcService:
         top = rows[:limit]
 
         # 2) 직렬화 (score/components 주입하지 않음)
-        ser = ProposalListSerializer(
+        ser = ProposalCalcItemSerializer(
             [r["proposal"] for r in top],
             many=True,
             context={"request": self.request, "profile": ProfileChoices.founder.value},
         ).data
-
         return ser  # ← 점수 미노출
