@@ -4,6 +4,7 @@ charset-normalizer==3.4.3
 colorama==0.4.6
 Django==5.2.4
 django-cors-headers==4.7.0
+django-crontab==0.7.1
 django-environ==0.12.0
 django-nanoid==0.0.2
 djangorestframework==3.16.0
