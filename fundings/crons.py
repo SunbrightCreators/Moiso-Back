@@ -6,7 +6,6 @@ from fundings.management.settle_fundings import settle_fundings
 
 def settle_fundings_job() -> None:
     """
-    5분마다 실행될 크론 잡.
     - 마감된(IN_PROGRESS) 펀딩을 SUCCEEDED/FAILED로 정산하고
       성공 시 구매 리워드를 발급합니다.
     """
