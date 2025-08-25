@@ -1,4 +1,8 @@
+from __future__ import annotations
+import logging
 from accounts.services import ProposerWeeklyLevelComputer
+
+logger = logging.getLogger("accounts.crons")
 
 def compute_proposer_levels() -> dict[str, int]:
     """
@@ -10,7 +14,6 @@ def compute_proposer_levels() -> dict[str, int]:
     res = comp.run()
     total_rows = sum(res.values())
     total_users = len(res)
-    print(f"[compute_proposer_levels] users={total_users}, updated_rows={total_rows}")
+    logger.info("[compute_proposer_levels] users=%s, updated_rows=%s", total_users, total_rows)
     return res
-
 
