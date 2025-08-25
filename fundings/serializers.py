@@ -74,21 +74,25 @@ class FundingListSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         images = []
+        req = self.context.get("request")
         for k in ("image1", "image2", "image3"):
             f = getattr(obj, k, None)
             if f:
                 try:
-                    images.append(f.url)
+                    rel = f.url
+                    # 절대 URL 변환
+                    images.append(rel if not req else req.build_absolute_uri(rel))
                 except Exception:
                     pass
         return images
 
     def get_founder(self, obj):
-        # 상세에서 super().get_founder(obj)로 재사용됨
         img = None
+        req = self.context.get("request")
         if getattr(obj, "founder_image", None):
             try:
-                img = obj.founder_image.url
+                rel = obj.founder_image.url
+                img = rel if not req else req.build_absolute_uri(rel)
             except Exception:
                 img = None
         return {"name": obj.founder_name, "image": img}
@@ -235,7 +239,14 @@ class FundingDetailBaseSerializer(FundingListSerializer):
         return None
 
     def get_video(self, obj):
-        return obj.video.url if obj.video else None
+        if not obj.video:
+            return None
+        try:
+            rel = obj.video.url
+            req = self.context.get("request")
+            return rel if not req else req.build_absolute_uri(rel)
+        except Exception:
+            return None
 
     def get_reward(self, obj):
         return RewardItemSerializer(obj.reward.all().only("id", "category", "title", "amount"), many=True).data

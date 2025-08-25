@@ -6,7 +6,7 @@ from django.apps import apps as django_apps
 class FundingQuerySet(models.QuerySet):
     def with_proposal(self):
         return self.select_related(
-            'proposal','user'
+            'proposal'
         )
 
     def with_analytics(self):

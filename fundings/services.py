@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import List, Dict, Optional
-from collections import defaultdict
 from django.db.models import QuerySet, Count, Max, Sum
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,13 +7,14 @@ from django.utils import timezone
 from datetime import timedelta
 from django.http import HttpRequest
 from django.db import transaction
+from collections import defaultdict
 from rest_framework.exceptions import PermissionDenied
-from utils.choices import ProfileChoices, FundingStatusChoices, PaymentStatusChoices, IndustryChoices, RewardCategoryChoices
+from utils.choices import ProfileChoices, FundingStatusChoices, PaymentStatusChoices, IndustryChoices, RewardCategoryChoices, RewardStatusChoices
 from utils.decorators import require_profile
 from utils.helpers import resolve_viewer_addr
 from django.apps import apps as django_apps  
 from django.core.exceptions import FieldError, ImproperlyConfigured
-from .models import Funding, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding, ProposerReward
+from .models import Funding, ProposerLikeFunding, ProposerScrapFunding, FounderScrapFunding, ProposerReward, Reward
 from pays.models import Payment
 from .serializers import (
     FundingListSerializer, 
@@ -448,76 +448,7 @@ class ProposerMyRewardsService:
             raise ValueError(f"Invalid category. Use one of {sorted(allowed)}.")
         return up
     
-    @transaction.atomic
-    def _materialize_purchased_rewards(self) -> None:
-        """
-        [핵심] 펀딩 성공(SUCCEEDED)한 결제들(DONE)을 모아
-        주문 당시 담았던 '구매 리워드'(GIFT/COUPON)를 수량만큼 ProposerReward로 발급.
-        - idempotent: 현재 보유 개수와 '구매 총 수량'을 비교해 부족분만 생성
-        - LEVEL 리워드는 구매/발급 대상에서 제외
-        """
-        proposer = getattr(self.request.user, "proposer", None)
-        if proposer is None:
-            raise PermissionDenied("제안자 프로필이 필요해요.")
-
-        # 1) 내 결제 중 '승인 완료' + 해당 펀딩이 '성공' 인 것만 조회
-        pays_qs = (
-            Payment.objects
-            .select_related("order", "funding")
-            .filter(
-                user=proposer,
-                status=PaymentStatusChoices.DONE,
-                funding__status=FundingStatusChoices.SUCCEEDED,
-            )
-            .order_by("approved_at", "pk")
-        )
-
-        # 2) 구매 리워드 총 수량 집계: reward_id → qty 합
-        target_qty_map: dict[int, int] = defaultdict(int)
-        for p in pays_qs:
-            order = getattr(p, "order", None)
-            items = getattr(order, "items_json", []) if order else []
-            for it in items:
-                rid = it.get("reward_id")
-                qty = it.get("quantity", 1)
-                try:
-                    rid = int(rid)
-                    qty = int(qty)
-                except Exception:
-                    continue
-                if qty <= 0:
-                    continue
-                target_qty_map[rid] += qty
-
-        if not target_qty_map:
-            return
-
-        # 3) 리워드 메타 조회 (카테고리 확인용)
-        Reward = django_apps.get_model("fundings", "Reward")
-        reward_map = Reward.objects.filter(id__in=target_qty_map.keys()).in_bulk()
-
-        # 4) 리워드별로 현재 보유(ProposerReward) 개수와 비교 → 부족분만 bulk_create
-        to_create: list[ProposerReward] = []
-        for rid, target_qty in target_qty_map.items():
-            r = reward_map.get(rid)
-            if not r:
-                continue
-            if r.category == RewardCategoryChoices.LEVEL:
-                # 구매 발급 대상 아님
-                continue
-
-            # 이미 보유 중인 개수
-            have = ProposerReward.objects.filter(user=proposer, reward_id=rid).count()
-            need = max(int(target_qty) - int(have), 0)
-            if need <= 0:
-                continue
-
-            # 부족분만큼 생성(같은 reward를 여러 장 발급)
-            to_create.extend(ProposerReward(user=proposer, reward=r) for _ in range(need))
-
-        if to_create:
-            ProposerReward.objects.bulk_create(to_create, ignore_conflicts=True)
-
+    
     def _serialize_response(
         self, prs_qs, cat: Optional[str]
     ) -> Dict[str, List[dict]]:
@@ -565,10 +496,7 @@ class ProposerMyRewardsService:
         # 0) 카테고리 검증
         cat = self._validate_and_norm_category(category)
 
-        # 1) 먼저 “구매 리워드 발급 누락분”을 보충 (안전한 중복 방지)
-        self._materialize_purchased_rewards()
-
-        # 2) 보유 리워드 조회 후 직렬화
+        # 1) 보유 리워드 조회 후 직렬화
         prs_qs = self._base_qs().order_by("-pk")
         return self._serialize_response(prs_qs, cat)
     
@@ -623,15 +551,13 @@ class FundingSettlementService:
 
     @transaction.atomic
     def settle_one(self, funding: Funding) -> Optional[str]:
-        """
-        단일 펀딩 정산. 상태가 실제로 바뀌면 'SUCCEEDED'/'FAILED' 반환, 아니면 None.
-        DB 경합 대비 UPDATE 조건에 status=IN_PROGRESS 포함.
-        """
+        # 1) 상태/마감 검증
         if funding.status != FundingStatusChoices.IN_PROGRESS:
             return None
         if not self._is_expired(funding):
             return None
 
+        # 2) 정산 결과 결정
         total_paid = self._paid_amount(funding.id)
         new_status = (
             FundingStatusChoices.SUCCEEDED
@@ -639,32 +565,101 @@ class FundingSettlementService:
             else FundingStatusChoices.FAILED
         )
 
-        # 경합 회피: 조건부 업데이트
+        # 3) 경합 회피: 조건부 업데이트
         updated = (
             Funding.objects
             .filter(pk=funding.pk, status=FundingStatusChoices.IN_PROGRESS)
             .update(status=new_status)
         )
-        return new_status if updated else None
+        if not updated:
+            return None
 
-    def run(self) -> FundingSettlementResult:
-        res = FundingSettlementResult()
-        qs = Funding.objects.filter(status=FundingStatusChoices.IN_PROGRESS).only("id", "schedule", "goal_amount", "status")
+        # 4) 성공 시에만 구매 리워드 발급
+        if new_status == FundingStatusChoices.SUCCEEDED:
+            self._materialize_purchased_rewards_for_funding(funding)
 
-        # end 파싱이 필요한 관계로 파이썬 필터링(건수가 많아지면 별도 인덱싱/캐싱 고려)
-        targets = [f for f in qs if self._is_expired(f)]
+        return new_status
+    
+    def _materialize_purchased_rewards_for_funding(self, funding: Funding) -> None:
+        """
+        (정산 시점용) 펀딩이 SUCCEEDED 가 되면,
+        이 펀딩에 대해 결제(DONE)한 제안자들에게 구매 리워드(GIFT/COUPON)를 수량만큼 발급.
+        - idempotent: 기존 보유 수량과 구매 총량을 비교하여 '부족분'만 생성
+        - LEVEL 보상은 제외
+        """
+        # 1) 이 펀딩에 대해 승인 완료된 결제들
+        pays_qs = (
+            Payment.objects
+            .select_related("order", "user")  # user = accounts.Proposer
+            .filter(
+                funding=funding,
+                status=PaymentStatusChoices.DONE,
+            )
+            .order_by("approved_at", "pk")
+        )
 
-        for f in targets:
-            changed = self.settle_one(f)
-            if changed == FundingStatusChoices.SUCCEEDED:
-                res.updated += 1; res.succeeded += 1
-            elif changed == FundingStatusChoices.FAILED:
-                res.updated += 1; res.failed += 1
-            else:
-                res.skipped += 1
+        if not pays_qs.exists():
+            return
 
-        # 아직 미도래/스킵된 것까지 합산하려면 아래처럼 계산 가능
-        res.skipped += (qs.count() - len(targets))
-        return res
+        # 2) 사용자별·리워드별 필요 수량 집계: {(proposer_id, reward_id) -> qty}
+        need_map: dict[tuple[int, int], int] = defaultdict(int)
+
+        for p in pays_qs:
+            proposer = getattr(p, "user", None)  # Payment.user = Proposer
+            if proposer is None:
+                continue
+            order = getattr(p, "order", None)
+            items = getattr(order, "items_json", []) if order else []
+            for it in items:
+                rid = it.get("reward_id")
+                qty = it.get("quantity", 1)
+                try:
+                    rid = int(rid)
+                    qty = int(qty)
+                except Exception:
+                    continue
+                if qty <= 0:
+                    continue
+                need_map[(proposer.id, rid)] += qty
+
+        if not need_map:
+            return
+
+        # 3) 리워드 메타 (LEVEL 제외 확인)
+        reward_ids = {rid for (_, rid) in need_map.keys()}
+        reward_map = {r.id: r for r in Reward.objects.filter(id__in=reward_ids)}
+
+        # 4) 사용자·리워드별 이미 보유한 수량 파악 → 부족분만 생성
+        to_create: list[ProposerReward] = []
+
+        # 한번에 조회 최적화: (user_id, reward_id) 별 카운트 맵
+        from django.db.models import Count
+        existing = (
+            ProposerReward.objects
+            .filter(reward_id__in=reward_ids, user_id__in={uid for (uid, _) in need_map.keys()})
+            .values("user_id", "reward_id")
+            .annotate(cnt=Count("id"))
+        )
+        have_map = {(row["user_id"], row["reward_id"]): int(row["cnt"]) for row in existing}
+
+        for (uid, rid), target_qty in need_map.items():
+            r = reward_map.get(rid)
+            if not r:
+                continue
+            if r.category == RewardCategoryChoices.LEVEL:
+                # 구매 발급 대상 아님
+                continue
+            have = have_map.get((uid, rid), 0)
+            need = max(int(target_qty) - int(have), 0)
+            if need <= 0:
+                continue
+            # 부족분만큼 생성
+            to_create.extend(
+                ProposerReward(user_id=uid, reward_id=rid, status=RewardStatusChoices.AVAILABLE)
+                for _ in range(need)
+            )
+
+        if to_create:
+            ProposerReward.objects.bulk_create(to_create, ignore_conflicts=True)
 
     

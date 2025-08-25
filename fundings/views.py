@@ -126,19 +126,10 @@ class FundingMapView(APIView):
             return Response(
                 {"detail": "sido, sigungu, eupmyundong 쿼리 파라미터가 모두 필요합니다."}, 
                 status=status.HTTP_400_BAD_REQUEST)
-    
-        # 중심좌표(지오코딩)
-        try:
-            geocoder = GeocodingService(request)  # 시그니처가 request를 받는 경우
-        except TypeError:
-            geocoder = GeocodingService()
-
-        viewer_addr = resolve_viewer_addr(request.user, profile)
-
-         # 서비스 호출
-        svc = FundingMapService(request)
         
-        # ── GET /fundings/{profile}/{zoom} : 지도 상세(동 이하, zoom=0) ─────────────────
+        viewer_addr = resolve_viewer_addr(request.user, profile)
+        
+        # ── "동 이하 상세" — 제안글의 '자체 좌표'로 그룹핑 (주소 기반 X) ─────────────────
         if zoom == ZoomChoices.M0:
             try:
                 qs = (
@@ -153,65 +144,46 @@ class FundingMapView(APIView):
                     .order_by_choice(order)
                 )
             except ValueError as e:
-                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": str(e)}, status=400)
 
-            prof = (profile or "").lower()
-            viewer_addr = resolve_viewer_addr(request.user, profile)
 
-            from collections import OrderedDict
-            groups = OrderedDict()
-            geocode_cache: dict[tuple[str, str, str], tuple[float | None, float | None]] = {}
-
+            groups: dict[tuple[float, float], dict] = {}
             for f in qs:
-                # 1) 주소 삼종세트로만 그룹키를 만든다 (개별 proposal.position 사용 X)
-                addr = (getattr(f.proposal, "address", {}) or {})
-                addr_key = (addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong"))
-                if not all(addr_key):
-                    # 주소가 불완전하면 스킵(혹은 필요 시 별도 처리)
-                    continue
-
-                # 2) 지오코딩 결과를 캐시해서 동일 동은 동일 좌표 사용
-                if addr_key not in geocode_cache:
-                    full_addr = " ".join(addr_key)
-                    try:
-                        pos = geocoder.get_address_to_position(query_address=full_addr) or {}
-                    except Exception:
-                        pos = {}
-                    lat = pos.get("latitude")
-                    lng = pos.get("longitude")
-                    # 미세 오차 정규화 (그리드 스냅) → 같은 동이면 항상 같은 키
-                    if lat is not None and lng is not None:
-                        try:
-                            lat = round(float(lat), 6)
-                            lng = round(float(lng), 6)
-                        except Exception:
-                            lat, lng = None, None
-                    geocode_cache[addr_key] = (lat, lng)
-
-                lat, lng = geocode_cache[addr_key]
-                if lat is None or lng is None:
-                    continue
+                pos = (getattr(f.proposal, "position", {}) or {})
+                try:
+                    lat = float(pos.get("latitude"))
+                    lng = float(pos.get("longitude"))
+                except (TypeError, ValueError):
+                    continue  # 좌표가 없거나 잘못된 경우 스킵
 
                 key = (lat, lng)
                 if key not in groups:
                     groups[key] = {
-                        "position": {"latitude": lat, "longitude": lng},  # ← 바깥에만 position
+                        "position": {"latitude": lat, "longitude": lng},  # 그룹의 대표 좌표(= 제안글 좌표)
                         "fundings": [],
                     }
 
-                # 3) 아이템 내부에는 position을 넣지 않는다
                 item = FundingListSerializer(
                     f,
                     context={
                         "request": request,
-                        "profile": prof,          # founder면 is_liked 제거됨
-                        "viewer_addr": viewer_addr,  # is_address 계산용
+                        "profile": profile,        # founder면 is_liked 제거
+                        "viewer_addr": viewer_addr # is_address 계산용
                     },
                 ).data
+                # 항목 내부에는 position 넣지 않음(명세와 동일)
                 groups[key]["fundings"].append(item)
 
-            return Response(list(groups.values()), status=status.HTTP_200_OK)
+            return Response(list(groups.values()), status=200)
 
+        # 중심좌표(지오코딩)
+        try:
+            geocoder = GeocodingService(request)  # 시그니처가 request를 받는 경우
+        except TypeError:
+            geocoder = GeocodingService()
+
+         # 서비스 호출
+        svc = FundingMapService(request)
 
         # 클러스터(시도/시군구/읍면동)
         if zoom == ZoomChoices.M10000:
@@ -220,6 +192,8 @@ class FundingMapView(APIView):
             grouped = svc.cluster_counts_sigungu(sido, industry)
         else:  # M500
             grouped = svc.cluster_counts_eupmyundong(sido, sigungu, industry)
+
+        viewer_addr = resolve_viewer_addr(request.user, profile)
 
         def _match(viewer, *, sido=None, sigungu=None, eup=None) -> bool:
             if not viewer:
@@ -240,6 +214,7 @@ class FundingMapView(APIView):
         result = []
         for idx, row in enumerate(grouped, start=1):
             addr_text = row["address"]
+
             if zoom == ZoomChoices.M10000:
                 full_addr = addr_text
                 is_addr = _match(viewer_addr, sido=addr_text)
@@ -254,12 +229,12 @@ class FundingMapView(APIView):
             try:
                 pos = geocoder.get_address_to_position(query_address=full_addr)
             except Exception:
-                pos = {"latitude": None, "longitude": None}
+                pos = {}
 
             result.append({
                 "id": idx,
                 "address": addr_text,
-                "position": pos,
+                "position": {"latitude": pos.get("latitude"), "longitude": pos.get("longitude")},
                 "number": row["number"],
                 "is_address": is_addr,
 
