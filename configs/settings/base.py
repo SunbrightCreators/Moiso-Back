@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'fundings.apps.FundingsConfig',
     'pays.apps.PaysConfig',
     'notifications.apps.NotificationsConfig',
+    'ops.apps.OpsConfig',
 ]
 
 MIDDLEWARE = [
