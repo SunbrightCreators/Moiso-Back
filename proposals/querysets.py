@@ -1,6 +1,7 @@
+from typing import Literal
 from django.db import models
 from django.db.models import  Count, OuterRef, Exists, BooleanField, Case, When, Value, F, Max, Q
-from utils.choices import IndustryChoices
+from utils.choices import ProfileChoices, IndustryChoices
 from fundings.models import Funding
 from functools import reduce
 from operator import or_
@@ -32,6 +33,34 @@ class ProposalQuerySet(models.QuerySet):
             address__sigungu=sigungu,
             address__eupmyundong=eupmyundong,
         )
+
+    def filter_user_address(self, user, profile:Literal['proposer','founder']):
+        user_profile = getattr(user, profile)
+        if profile == ProfileChoices.proposer.value:
+            addresses = user_profile.proposer_level.values_list('address', flat=True)
+        elif profile == ProfileChoices.founder.value:
+            addresses = user_profile.address
+
+        condition= Q()
+        for address in addresses:
+            condition |= Q(
+                address__sido=address['sido'],
+                address__sigungu=address['sigungu'],
+                address__eupmyundong=address['eupmyundong'],
+            )
+
+        return self.filter(condition)
+
+    def filter_user_industry(self, user, profile:Literal['proposer','founder']):
+        user_profile = getattr(user, profile)
+        industrys = user_profile.industry
+
+        condition = Q()
+        for industry in industrys:
+            condition |= Q(industry=industry)
+
+        return self.filter(condition)
+
     def filter_industry_choice(self, industry: str | None):
         """industry가 None이면 통과, 값이 있으면 유효성 검사 후 필터. 잘못된 값이면 ValueError."""
         if not industry:

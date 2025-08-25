@@ -90,3 +90,7 @@ dmypy.json
 
 # PyPI configuration file
 .pypirc
+
+# AI Model
+recommendations/*.bin
+recommendations/*.bin.*

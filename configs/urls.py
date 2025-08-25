@@ -9,6 +9,7 @@ urlpatterns = [
     path('maps/', include('maps.urls')),
     path('proposals/', include('proposals.urls')),
     path('fundings/', include('fundings.urls')),
+    path('recommendations/', include('recommendations.urls')),
     path('pays/', include('pays.urls')),
     path('notifications/', include('notifications.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
