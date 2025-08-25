@@ -15,16 +15,16 @@ from django.utils import timezone
 #  - proposals(해당 지역 제안 수) 20%
 #  - fundings(해당 지역 펀딩 참여 수) 20%
 LEVEL_WEIGHTS = getattr(settings, "LEVEL_WEIGHTS", {
-    "visits":    40,
-    "likes":     20,
-    "proposals": 20,
-    "fundings":  20,
+    "visits":    40,  # 방문일수
+    "likes":     20,  # 좋아요
+    "proposals": 20,  # 제안
+    "fundings":  20,  # 펀딩 참여
 })
 LEVEL_CAPS = getattr(settings, "LEVEL_CAPS", {
-    "visits":    7,   # 방문일수: 최대 7일(하루 1회)
-    "likes":     10,  # 좋아요 수: 최대 10
-    "proposals": 5,   # 제안 수: 최대 5
-    "fundings":  3,   # 펀딩 참여 수: 최대 3
+    "visits":    7,   # 1일 1회, 최대 7일
+    "likes":     10,  # 최대 10회
+    "proposals": 5,   # 최대 5회
+    "fundings":  3,   # 최대 3회
 })
 
 DEFAULT_WINDOW_DAYS = int(getattr(settings, "LEVEL_WINDOW_DAYS", 7))  # 기본 7일(주 단위)
@@ -58,13 +58,10 @@ def _score_to_level(score: float) -> int:
 
 @dataclass
 class RegionStats:
-    """
-    지역별 주간 지표(캡 적용 전 원시값).
-    """
-    visits: int = 0       # 지역 방문 '일수' (cap 7)
-    likes: int = 0        # 좋아요 수 (cap 10)
-    proposals: int = 0    # 제안 수 (cap 5)
-    fundings: int = 0     # 펀딩 참여 수 (cap 3)
+    visits: int = 0       # cap 7
+    likes: int = 0        # cap 10
+    proposals: int = 0    # cap 5
+    fundings: int = 0     # cap 3
 
     def clamped(self) -> "RegionStats":
         return RegionStats(
@@ -75,17 +72,12 @@ class RegionStats:
         )
 
     def to_score(self) -> int:
-        """
-        점수식:
-          (방문/7 * 40) + (좋아요/10 * 20) + (제안/5 * 20) + (펀딩/3 * 20)
-        각 분모는 캡으로 제한되어 1을 초과하지 않음.
-        """
         c = self.clamped()
         score = 0.0
-        score += (c.visits    / LEVEL_CAPS["visits"])    * LEVEL_WEIGHTS["visits"]
-        score += (c.likes     / LEVEL_CAPS["likes"])     * LEVEL_WEIGHTS["likes"]
-        score += (c.proposals / LEVEL_CAPS["proposals"]) * LEVEL_WEIGHTS["proposals"]
-        score += (c.fundings  / LEVEL_CAPS["fundings"])  * LEVEL_WEIGHTS["fundings"]
+        score += (c.visits    / LEVEL_CAPS["visits"])    * LEVEL_WEIGHTS["visits"]    # (방문/7)*40
+        score += (c.likes     / LEVEL_CAPS["likes"])     * LEVEL_WEIGHTS["likes"]     # (좋아요/10)*20
+        score += (c.proposals / LEVEL_CAPS["proposals"]) * LEVEL_WEIGHTS["proposals"] # (제안/5)*20
+        score += (c.fundings  / LEVEL_CAPS["fundings"])  * LEVEL_WEIGHTS["fundings"]  # (펀딩/3)*20
         return int(round(score))
 
 
@@ -184,60 +176,56 @@ class ProposerWeeklyLevelComputer:
         start, end = self.window
         stats: Dict[AddrT, RegionStats] = {r: RegionStats() for r in regions}
 
-        # A) 방문일수(최근 7일 내 날짜 기준, 하루 1회)
+        # 방문일수(최근 7일, 하루 1회)
         hist = self.LocationHistory.objects.filter(
             user=proposer, created_at__gte=start, created_at__lt=end
         ).only("created_at", "address").order_by("created_at")
-
-        visited_days: DefaultDict[AddrT, set] = defaultdict(set)
+        visited_days = defaultdict(set)
         for row in hist:
             a = _canon_addr(row.address)
             if a:
                 visited_days[a].add(row.created_at.date())
-
         for a, days in visited_days.items():
             if a in stats:
                 stats[a].visits = len(days)
 
-        # B) 활동 기여: 제안/좋아요/펀딩 (모두 해당 지역 + 윈도우 내)
-        #  - 제안 수
-        for a in regions:
-            q = Q(address__sido=a[0], address__sigungu=a[1], address__eupmyundong=a[2])
+        # 주소 필터 맵
+        addr_q = {a: Q(address__sido=a[0], address__sigungu=a[1], address__eupmyundong=a[2]) for a in regions}
+
+        # 제안 수
+        for a, q in addr_q.items():
             stats[a].proposals = self.Proposal.objects.filter(
                 user=proposer, created_at__gte=start, created_at__lt=end
             ).filter(q).count()
 
-        #  - 좋아요 수 (created_at 없을 가능성 방어)
-        base_like_qs = self.ProposerLikeProposal.objects.filter(user=proposer)
-        like_has_created_at = True
+        # 좋아요 수 (created_at 없을 가능성 방어)
+        base_like = self.ProposerLikeProposal.objects.filter(user=proposer)
+        has_like_created_at = True
         try:
-            _ = base_like_qs.model._meta.get_field("created_at")
+            base_like.model._meta.get_field("created_at")
         except Exception:
-            like_has_created_at = False
+            has_like_created_at = False
 
         for a in regions:
-            q = Q(proposal__address__sido=a[0],
-                  proposal__address__sigungu=a[1],
-                  proposal__address__eupmyundong=a[2])
-            lk_qs = base_like_qs.filter(q)
-            if like_has_created_at:
-                lk_qs = lk_qs.filter(created_at__gte=start, created_at__lt=end)
+            q = Q(proposal__address__sido=a[0], proposal__address__sigungu=a[1], proposal__address__eupmyundong=a[2])
+            lk = base_like.filter(q)
+            if has_like_created_at:
+                lk = lk.filter(created_at__gte=start, created_at__lt=end)
             else:
-                lk_qs = lk_qs.none()
-            stats[a].likes = lk_qs.count()
+                lk = lk.none()
+            stats[a].likes = lk.count()
 
-        #  - 펀딩 참여 수 (Payment.status='DONE' & approved_at)
+        # 펀딩 참여 수 (status='DONE', approved_at ∈ window)
         for a in regions:
             q = Q(funding__proposal__address__sido=a[0],
-                  funding__proposal__address__sigungu=a[1],
-                  funding__proposal__address__eupmyundong=a[2])
+                funding__proposal__address__sigungu=a[1],
+                funding__proposal__address__eupmyundong=a[2])
             stats[a].fundings = self.Payment.objects.filter(
                 user=proposer, status="DONE",
                 approved_at__gte=start, approved_at__lt=end,
             ).filter(q).count()
 
         return stats
-
     # ── 레벨 저장 ─────────────────────────────────────────────────────
     def _upsert_levels(self, proposer, stats_map: Dict[AddrT, RegionStats]) -> int:
         """
