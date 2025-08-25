@@ -170,8 +170,8 @@ class Reward(models.Model):
     content = models.CharField(
          max_length=50,
     )
-    amount = models.PositiveSmallIntegerField(
-        choices=RewardAmountChoices.choices,
+    amount = models.PositiveIntegerField(
+    choices=RewardAmountChoices.choices,
     )
     expired_at = models.DateTimeField(
         null=True,
@@ -179,7 +179,12 @@ class Reward(models.Model):
     )
 
     def __str__(self):
-        return f"[{self.funding.title}] {self.title}"
+        title = self.title or "(제목 없음)"
+        f = getattr(self, "funding", None)
+        if f is not None:
+            return f"[{f.title}] {title}"
+        return title
+
 
 class ProposerReward(models.Model):
     id = NANOIDField(
