@@ -48,22 +48,20 @@ class FundingListSerializer(serializers.ModelSerializer):
         return obj.proposal.get_industry_display()
 
     def get_expected_opening_date(self, obj):
-        # 예: "2025-10" -> "2025년 10월"
-        raw = getattr(obj, "expected_opening_date", "") or ""
-        try:
-            y, m = raw.split("-")[:2]
-            return f"{int(y)}년 {int(m)}월"
-        except Exception:
-            return raw or None
+        dates = obj.expected_opening_date.split('-')
+        return f'{dates[0]}년 {dates[1]}월'
 
     def get_radius(self, obj):
         return obj.get_radius_display()
 
     def get_progress(self, obj):
-        goal = obj.goal_amount or 0
-        amount = obj.amount or 0  # with_analytics에서 annotate된 금액
-        rate = math.trunc((amount / goal) * 100) if goal else 0
-        return {"rate": rate, "amount": amount}
+        goal_amount = obj.goal_amount
+        amount = obj.amount or 0
+        rate = math.trunc((amount / goal_amount) * 100)
+        return {
+            'rate': rate,
+            'amount': amount,
+        }
 
     def get_days_left(self, obj):
         try:

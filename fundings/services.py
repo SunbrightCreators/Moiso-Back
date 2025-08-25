@@ -266,16 +266,6 @@ def _get_eupmyundong_from_proposer(proposer) -> str | None:
         val = addr.get("eupmyundong")
         if val:
             return str(val)
-
-    # 2) proposer.user 쪽에 있을 수도 있는 경우까지 방어 (필요하면 확장)
-    user_obj = getattr(proposer, "user", None)
-    if user_obj is not None:
-        user_addr = getattr(user_obj, "address", None)
-        if isinstance(user_addr, dict):
-            val = user_addr.get("eupmyundong")
-            if val:
-                return str(val)
-
     return None
 
 # 좋아요 산출
