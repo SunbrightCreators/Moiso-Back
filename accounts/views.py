@@ -1,6 +1,4 @@
 from datetime import datetime, timezone as dt_timezone
-
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, IntegrityError
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -9,16 +7,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer as SJWTokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from django.db.utils import ProgrammingError, OperationalError
 from django.utils.crypto import get_random_string
 
 from maps.services import ReverseGeocodingService
 from .models import (
-    User,
     Proposer,
-    ProposerLevel,
-    LocationHistory,
-    Founder,
+    Founder
 )
 from .serializers import (
     UserLoginSerializer,
@@ -162,14 +156,26 @@ class AccountsRoot(APIView):
     permission_classes = [AllowAny]
 
     def get_authenticators(self):
-        if self.request and self.request.method == "DELETE":
+        # GET/DELETE는 JWT 인증 적용, POST는 익명 허용
+        if self.request and self.request.method in ("GET", "DELETE"):
             return [JWTAuthentication()]
         return super().get_authenticators()
 
     def get_permissions(self):
-        if self.request and self.request.method == "DELETE":
+        if self.request and self.request.method in ("GET", "DELETE"):
             return [IsAuthenticated()]
         return [AllowAny()]
+    
+    # 회원 조회
+    def get(self, request):
+        user = request.user
+        profiles = []
+        if hasattr(user, "proposer"):
+            profiles.append("proposer")
+        if hasattr(user, "founder"):
+            profiles.append("founder")
+
+        return Response({"profile": profiles}, status=status.HTTP_200_OK)
 
     @transaction.atomic
     def post(self, request):
