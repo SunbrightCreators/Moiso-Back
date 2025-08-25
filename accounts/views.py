@@ -12,7 +12,8 @@ from django.utils.crypto import get_random_string
 from maps.services import ReverseGeocodingService
 from .models import (
     Proposer,
-    Founder
+    Founder,
+    LocationHistory
 )
 from .serializers import (
     UserLoginSerializer,
