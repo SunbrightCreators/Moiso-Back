@@ -1,6 +1,9 @@
 from __future__ import annotations
 from datetime import datetime
 from fundings.services import FundingSettlementService
+import logging
+
+logger = logging.getLogger("fundings.crons")
 
 def settle_fundings(now: datetime | None = None, verbose: bool = True):
     """
@@ -16,6 +19,11 @@ def settle_fundings(now: datetime | None = None, verbose: bool = True):
     """
     svc = FundingSettlementService(now=now)
     result = svc.run()
+
+    logger.info(
+        "settled: updated=%s, succeeded=%s, failed=%s, skipped=%s",
+        result.updated, result.succeeded, result.failed, result.skipped
+    )
 
     if verbose:
         print(

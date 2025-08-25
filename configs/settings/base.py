@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'recommendations.apps.RecommendationsConfig',
     'pays.apps.PaysConfig',
     'notifications.apps.NotificationsConfig',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -172,3 +173,108 @@ SIMPLE_JWT = {
     
     'TOKEN_USER_CLASS': AUTH_USER_MODEL,
 }
+
+CRONJOBS = [
+    ('0 0 * * *',  'fundings.crons.settle_fundings_job'),  # 매일 자정(00:00)
+    ('0 0 * * 1',  'accounts.crons.compute_levels_job'),    # 매주 월요일 자정(00:00)
+]
+
+CRONJOBS_TIMEZONE = 'Asia/Seoul'
+
+# 로그 파일을 저장할 디렉토리 설정
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    # 로그 포맷 정의
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
+        },
+        'cron_format': {
+            'format': '[{asctime}] {levelname} - {name}: {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
+
+    # 로그 핸들러 정의 (어디에 저장할지)
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+
+        # Cron 작업 전용 로그 파일
+        'cron_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'cron.log'),
+            'maxBytes': 1024*1024*5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'cron_format',
+        },
+
+        # 일반 Django 로그 파일
+        'django_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'django.log'),
+            'maxBytes': 1024*1024*10,  # 10MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+
+        # 에러 전용 로그 파일
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'error.log'),
+            'maxBytes': 1024*1024*5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+
+    # 로거 정의 (어떤 모듈의 로그를 어느 핸들러로 보낼지)
+    'loggers': {
+        # Cron 작업 로거
+        'myapp.tasks': {
+            'handlers': ['cron_file', 'console', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+
+        # Django 전체 로거
+        'django': {
+            'handlers': ['django_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+
+        # 루트 로거
+        '': {
+            'handlers': ['console', 'django_file', 'error_file'],
+            'level': 'INFO',
+        },
+    },
+}
+
+LOGGING["loggers"].update({
+    "accounts.crons":  {"handlers": ["cron_file", "console"], "level": "INFO", "propagate": False},
+    "accounts.tasks":  {"handlers": ["cron_file", "console"], "level": "INFO", "propagate": False},
+    "fundings.crons":  {"handlers": ["cron_file", "console"], "level": "INFO", "propagate": False},
+    "fundings.tasks":  {"handlers": ["cron_file", "console"], "level": "INFO", "propagate": False},
+})
+
+
