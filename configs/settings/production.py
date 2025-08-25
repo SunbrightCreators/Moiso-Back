@@ -13,4 +13,4 @@ CACHES = {
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+CORS_ORIGIN_ALLOW_ALL = True
