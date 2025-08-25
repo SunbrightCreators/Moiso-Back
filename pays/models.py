@@ -9,6 +9,44 @@ from utils.choices import (
     CashReceiptIssueStatusChoices,
 )
 
+class Order(models.Model):
+    order_id = models.CharField(
+        primary_key=True,
+        max_length=64,
+        validators=[MinLengthValidator(6)],
+        help_text="주문번호(영문/숫자 6~64자)",
+    )
+    funding = models.ForeignKey(
+       "fundings.Funding",
+       on_delete=models.PROTECT,
+       related_name='order',
+    )
+    user = models.ForeignKey(
+        "accounts.Proposer",
+        on_delete=models.CASCADE,
+        related_name='order',
+    )
+    payment = models.OneToOneField(
+        "pays.Payment",
+        on_delete=models.PROTECT,
+        related_name='order',
+    )
+    item = models.JSONField(
+        default=dict,          
+        help_text="구매 리워드 스냅샷(JSON)",
+    )
+    proposer_reward = models.ForeignKey(
+        "fundings.ProposerReward",
+        on_delete=models.SET_NULL,  # 리워드 삭제돼도 주문은 보존
+        related_name='order',
+        null=True,
+        blank=True,
+    )
+
+    def __str__(self):
+        return self.order_id
+
+
 class Payment(models.Model):
     """
     결제(토스 위젯/가상계좌/간편결제 공통)
