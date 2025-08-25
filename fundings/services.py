@@ -662,4 +662,29 @@ class FundingSettlementService:
         if to_create:
             ProposerReward.objects.bulk_create(to_create, ignore_conflicts=True)
 
+    def run(self) -> FundingSettlementResult:
+        result = FundingSettlementResult()
+        qs = Funding.objects.only("id", "status", "goal_amount", "schedule").filter(
+            status=FundingStatusChoices.IN_PROGRESS
+        )
+
+        for f in qs:
+            # 마감 여부 확인
+            if not self._is_expired(f):
+                result.skipped += 1
+                continue
+
+            new_status = self.settle_one(f)  # SUCCEEDED/FAILED/None
+            if new_status is None:
+                result.skipped += 1
+                continue
+
+            result.updated += 1
+            if new_status == FundingStatusChoices.SUCCEEDED:
+                result.succeeded += 1
+            else:
+                result.failed += 1
+
+        return result
+
     
