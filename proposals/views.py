@@ -104,7 +104,7 @@ class ProposalsZoom(APIView):
             return Response({"detail": "sido, sigungu, eupmyundong 쿼리 파라미터가 모두 필요합니다."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # 서비스 호출
+        viewer_addr = resolve_viewer_addr(request.user, profile)
         svc = ProposalMapService(request, profile)
 
         # 동 이하(0): 목록 + is_liked/is_scrapped/is_address
@@ -118,65 +118,37 @@ class ProposalsZoom(APIView):
                     .with_analytics()
                     .with_level_area(sido=sido, sigungu=sigungu, eupmyundong=eupmyundong)
                     .filter_industry_choice(industry)
+                    .with_flags(user=request.user, profile=profile, viewer_addr=viewer_addr)
                     .with_user()
                     .with_has_funding()
+                    .order_by_choice(order)
                 )
-                viewer_addr = resolve_viewer_addr(request.user, profile)
-                qs = qs.with_flags(user=request.user, profile=profile, viewer_addr=viewer_addr)
-                qs = qs.order_by_choice(order)
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-            # 지오코더 준비
-            try:
-                geocoder = GeocodingService(request)
-            except TypeError:
-                geocoder = GeocodingService()
-
+            
+            groups: dict[tuple[float, float], dict] = {}
             prof = (profile or "").lower()
-            groups = OrderedDict()
-            geocode_cache: dict[tuple[str, str, str], tuple[float | None, float | None]] = {}
 
             for obj in qs:
-                # 주소 삼종으로만 그룹핑 (개별 position 사용 X)
-                addr = (obj.address or {})
-                addr_key = (addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong"))
-                if not all(addr_key):
-                    continue
-
-                # 동일 동은 동일 좌표 (캐시 + 반올림 정규화)
-                if addr_key not in geocode_cache:
-                    full_addr = " ".join(addr_key)
-                    try:
-                        pos = geocoder.get_address_to_position(query_address=full_addr) or {}
-                    except Exception:
-                        pos = {}
-                    lat = pos.get("latitude"); lng = pos.get("longitude")
-                    if lat is not None and lng is not None:
-                        try:
-                            lat = round(float(lat), 6)
-                            lng = round(float(lng), 6)
-                        except Exception:
-                            lat, lng = None, None
-                    geocode_cache[addr_key] = (lat, lng)
-
-                lat, lng = geocode_cache[addr_key]
-                if lat is None or lng is None:
-                    continue
+                pos = obj.position or {}
+                try:
+                    lat = float(pos.get("latitude"))
+                    lng = float(pos.get("longitude"))
+                except (TypeError, ValueError):
+                    continue  # 좌표가 없거나 잘못된 경우 스킵
 
                 key = (lat, lng)
                 if key not in groups:
                     groups[key] = {
-                        "position": {"latitude": lat, "longitude": lng},  # ← 바깥에만 position
+                        "position": {"latitude": lat, "longitude": lng},  # 그룹 대표 좌표
                         "proposals": [],
                     }
-
-                # 아이템 내부에는 position 없음
-                if prof == "founder":
-                    item = ProposalZoomFounderItemSerializer(obj, context={"request": request}).data
-                else:
-                    item = ProposalListSerializer(obj, context={"request": request}).data
-
+                item = (
+                    ProposalZoomFounderItemSerializer(obj, context={"request": request}).data
+                    if prof == "founder"
+                    else ProposalListSerializer(obj, context={"request": request}).data
+                )
+                # 항목 내부에는 position 없음(명세 준수)
                 groups[key]["proposals"].append(item)
 
             return Response(list(groups.values()), status=status.HTTP_200_OK)
@@ -191,8 +163,10 @@ class ProposalsZoom(APIView):
             grouped = svc.cluster_counts_eupmyundong(sido, sigungu, industry)
 
         # 중심좌표(지오코딩) + is_address 가공은 뷰에서
-        geocoder = GeocodingService(request)
-        viewer_addr = resolve_viewer_addr(request.user, profile)
+        try:
+            geocoder = GeocodingService(request)
+        except TypeError:
+            geocoder = GeocodingService()
 
         def _match(viewer, *, sido=None, sigungu=None, eup=None) -> bool:
             if not viewer:
