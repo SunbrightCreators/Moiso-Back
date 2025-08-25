@@ -655,7 +655,7 @@ class FundingSettlementService:
                 continue
             # 부족분만큼 생성
             to_create.extend(
-                ProposerReward(user_id=uid, reward_id=rid, status=RewardStatusChoices.AVAILABLE)
+                ProposerReward(user_id=uid, reward_id=rid, status=RewardStatusChoices.UNUSED)
                 for _ in range(need)
             )
 
