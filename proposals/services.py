@@ -2,7 +2,7 @@ from typing import List, Dict, Optional
 from django.http import HttpRequest
 from rest_framework.exceptions import PermissionDenied
 from utils.choices import ProfileChoices, IndustryChoices
-from utils.decorators import require_profile
+from utils.decorators.service import require_profile
 from django.db.models import Count
 from .models import Proposal, ProposerLikeProposal, ProposerScrapProposal, FounderScrapProposal
 from .serializers import ProposalListSerializer

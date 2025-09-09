@@ -3,7 +3,7 @@ from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from utils.decorators import require_query_params
+from utils.decorators.view import require_query_params
 from .services import GeocodingService, ReverseGeocodingService
 
 class GeocodingPosition(APIView):
