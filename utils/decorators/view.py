@@ -4,7 +4,6 @@ from rest_framework.exceptions import ValidationError
 def require_query_params(*required_query_params:str):
     """
     클라이언트가 필수 쿼리 파라미터를 포함하여 요청했는지 확인합니다.
-    View에서 사용해 주세요.
     """
     def decorator(view_func):
         @wraps(view_func)
@@ -24,7 +23,6 @@ def require_query_params(*required_query_params:str):
 
 def validate_path_choices(**path_variables):
     """
-    View에서 사용해 주세요.
     Examples:
         validate_path_choices(profile=ProfileChoices.values)
     """

@@ -29,7 +29,7 @@ def validate_permission(service_func):
 
 def require_profile(profile:ProfileChoices):
     """
-    Service에서 사용해 주세요.
+    클라이언트가 필요 프로필을 갖고 있는지 확인합니다.
     """
     def decorator(service_func):
         @wraps(service_func)
