@@ -2,7 +2,7 @@ from functools import wraps
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from utils.choices import ProfileChoices
 
 def validate_data(service_func):
@@ -12,10 +12,7 @@ def validate_data(service_func):
     @wraps(service_func)
     def wrapper(self, *args, **kwargs):
         if not self.serializer.is_valid():
-            return Response(
-                self.serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValidationError(self.serializer.errors)
         return service_func(self, *args, **kwargs)
     return wrapper
 
@@ -26,10 +23,7 @@ def validate_permission(service_func):
     @wraps(service_func)
     def wrapper(self, *args, **kwargs):
         if self.instance.user != self.request.user:
-            return Response(
-                {"detail":"권한이 없습니다."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            raise PermissionDenied(detail="권한이 없어요.")
         return service_func(self, *args, **kwargs)
     return wrapper
 
@@ -41,7 +35,7 @@ def require_profile(profile:ProfileChoices):
         @wraps(service_func)
         def wrapper(self, *args, **kwargs):
             if getattr(self.request.user, profile.value, None) is None:
-                raise PermissionDenied(f"{profile.label} 프로필을 생성해 주세요.")
+                raise PermissionDenied(detail=f"{profile.label} 프로필을 생성해 주세요.")
             return service_func(self, *args, **kwargs)
         return wrapper
     return decorator
@@ -57,7 +51,7 @@ def validate_unique(service_func):
         except IntegrityError as error:
             if "UNIQUE constraint failed" in str(error):
                 raise Response(
-                    {"detail":"이미 존재하는 값입니다."},
+                    data={"detail":"이미 존재하는 값입니다."},
                     status=status.HTTP_409_CONFLICT,
                 )
     return wrapper

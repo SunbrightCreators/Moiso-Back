@@ -1,6 +1,5 @@
 from functools import wraps
-from rest_framework import status
-from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 def require_query_params(*required_query_params:str):
     """
@@ -17,10 +16,7 @@ def require_query_params(*required_query_params:str):
                     errors[param] = "This query parameter is required."
 
             if errors:
-                return Response(
-                    errors,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise ValidationError(errors)
 
             return view_func(request, *args, **kwargs)
         return wrapper
@@ -44,10 +40,7 @@ def validate_path_choices(**path_variables):
                     errors[var_name] = f"Ensure this value has one of these: {', '.join(str(value) for value in values)}"
 
             if errors:
-                return Response(
-                    errors,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise ValidationError(errors)
 
             return view_func(request, *args, **kwargs)
         return wrapper
