@@ -14,7 +14,7 @@ import fasttext.util
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.choices import ProfileChoices
 from utils.constants import CacheKey
-from utils.decorators import require_profile
+from utils.decorators.service import require_profile
 from proposals.models import Proposal
 from proposals.serializers import ProposalListSerializer
 

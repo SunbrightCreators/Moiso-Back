@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from utils.decorators import validate_path_choices
+from utils.decorators.view import validate_path_choices
 from utils.helpers import resolve_viewer_addr
 
 from utils.choices import ProfileChoices, ZoomChoices, FundingStatusChoices

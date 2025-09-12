@@ -10,7 +10,7 @@ from django.db import transaction
 from collections import defaultdict
 from rest_framework.exceptions import PermissionDenied
 from utils.choices import ProfileChoices, FundingStatusChoices, PaymentStatusChoices, IndustryChoices, RewardCategoryChoices, RewardStatusChoices
-from utils.decorators import require_profile
+from utils.decorators.service import require_profile
 from utils.helpers import resolve_viewer_addr
 from django.apps import apps as django_apps  
 from django.core.exceptions import FieldError, ImproperlyConfigured

@@ -8,7 +8,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from utils.choices import ProfileChoices, ZoomChoices
-from utils.decorators import validate_path_choices
+from utils.decorators.view import validate_path_choices
 from maps.services import GeocodingService
 from utils.helpers import resolve_viewer_addr
 from .models import Proposal
