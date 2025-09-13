@@ -418,6 +418,7 @@ class RecommendationCalcService:
         # (필요하면) with_analytics/with_user가 있으면 덮어쓰기
         try:
             qs = qs.with_analytics()
+            
         except Exception:
             pass
         try:
