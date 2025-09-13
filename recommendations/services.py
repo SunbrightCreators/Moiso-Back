@@ -19,7 +19,7 @@ from proposals.models import Proposal
 from proposals.serializers import ProposalListSerializer
 from utils.choices import FounderTargetChoices
 from django.db.models import (
-    Case, When, Value, IntegerField, F, Q, Count, Subquery, OuterRef
+    Case, When, Value, IntegerField, F, Q, Count, Subquery, OuterRef, BooleanField
 )
 from django.db.models.functions import Coalesce
 from accounts.models import ProposerLevel
@@ -373,35 +373,67 @@ class RecommendationCalcService:
         address__sigungu=OuterRef("address__sigungu"),
         address__eupmyundong=OuterRef("address__eupmyundong"),
         ).order_by("-id").values("level")[:1]
+        
 
         qs = (
-        Proposal.objects
-        .filter(funding__isnull=True)
-        .filter(addr_q)
-        .filter(industry__in=list(self.founder_industries))  # founder 관심 업종에 포함
-        .with_analytics()  # ← 반드시 먼저!
-        .annotate(
-            total_likes=Coalesce(Count("proposer_like_proposal__user", distinct=True), 0),
-            local_likes=Coalesce(
-                Count(
-                    "proposer_like_proposal__user",
-                    filter=Q(
-                        proposer_like_proposal__user__proposer_level__address__sido=F("address__sido"),
-                        proposer_like_proposal__user__proposer_level__address__sigungu=F("address__sigungu"),
-                        proposer_like_proposal__user__proposer_level__address__eupmyundong=F("address__eupmyundong"),
-                    ),
-                    distinct=True,
-                ),
-                0,
-            ),
-            proposer_level_at_addr=Coalesce(Subquery(level_subq, output_field=IntegerField()), 0),
-            likes_count_anno=Coalesce(F("likes_count"), 0),
+            Proposal.objects
+            .filter(funding__isnull=True)
+            .filter(addr_q)
+            .filter(industry__in=list(self.founder_industries))
+            .select_related("user", "user__user")     # ← obj.user.user 접근 대비 (N+1 방지)
         )
-        .with_user()
-    )
 
-        # 1차 컷(최대 200) – 파이썬 계산량 제한
-        candidates = list(qs.order_by("-likes_count_anno", "-created_at", "-id")[:200])
+        # 1) 항상 존재해야 하는 필드들을 기본값/집계로 채움
+        qs = qs.annotate(
+            # 제안자의 '해당 동' 레벨
+            proposer_level_at_addr=Coalesce(Subquery(level_subq, output_field=IntegerField()), 0),
+
+            # 좋아요/스크랩 집계
+            likes_count=Coalesce(Count("proposer_like_proposal__user", distinct=True), 0),
+            scraps_count=Coalesce(Count("founder_scrap_proposal__user", distinct=True), 0),
+
+            # founder가 이 제안을 스크랩했는지
+            _my_scrap=Count(
+                "founder_scrap_proposal__user",
+                filter=Q(founder_scrap_proposal__user=self.user.founder),
+                distinct=True,
+            ),
+        ).annotate(
+            is_scrapped=Case(
+                When(_my_scrap__gt=0, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            ),
+
+            # founder 응답에서는 좋아요 불가 → False 고정(Detail/MapItem에서 founder면 어차피 pop될 수도 있음)
+            is_liked=Value(False, output_field=BooleanField()),
+
+            # 주소 필터로 이미 founder 우리동네만 옴 → True 고정
+            is_address=Value(True, output_field=BooleanField()),
+
+            # Detail/ZoomFounder가 요구
+            has_funding=Value(False, output_field=BooleanField()),
+        )
+
+        # (필요하면) with_analytics/with_user가 있으면 덮어쓰기
+        try:
+            qs = qs.with_analytics()
+        except Exception:
+            pass
+        try:
+            try:
+                qs = qs.with_user(self.user)
+            except TypeError:
+                qs = qs.with_user()
+        except Exception:
+            pass
+
+        # 정렬/슬라이스는 기존 로직 유지
+        candidates = list(qs.order_by("-likes_count", "-created_at", "-id")[:200])
+
+
+
+
 
         @dataclass
         class CalcWeights:
