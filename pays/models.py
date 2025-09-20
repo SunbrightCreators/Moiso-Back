@@ -15,6 +15,8 @@ class Order(models.Model):
         max_length=64,
         validators=[MinLengthValidator(6)],
         help_text="주문번호(영문/숫자 6~64자)",
+        null=True, 
+        blank=True
     )
     funding = models.ForeignKey(
        "fundings.Funding",
