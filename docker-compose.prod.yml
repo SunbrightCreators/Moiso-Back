@@ -20,12 +20,12 @@ services:
     # 컨테이너 시작 시 엔트리포인트 스크립트 실행
     entrypoint:
       - sh
-      - config/docker/entrypoint.prod.sh # ← Dockerfile의 COPY 경로와 일치시키기
+      - configs/docker/entrypoint.prod.sh # ← Dockerfile의 COPY 경로와 일치시키기
 
   # Nginx 리버스 프록시
   nginx:
     container_name: nginx
-    build: ./config/nginx # ← 네 디렉토리명이 config인지 configs인지 확인!
+    build: ./configs/nginx # ← 네 디렉토리명이 config인지 configs인지 확인!
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
