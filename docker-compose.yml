@@ -31,6 +31,7 @@ services:
       sh -c "python manage.py migrate --settings=configs.settings.development
       && python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development"
     environment:
+      SECRET_KEY: l3u7okmc3x=pi!pjkj22=!@+0bn%ih%fen!%t@+zysvy5&*lb9
       DATABASE_ENGINE: django.db.backends.postgresql
       DATABASE_NAME: sunnydb
       DATABASE_USER: "kim-yeon-woo"
