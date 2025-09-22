@@ -43,6 +43,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
  && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 libjpeg62-turbo zlib1g libgomp1 tzdata ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 # 앱 사용자/디렉터리
 RUN mkdir -p /home/app && \
     addgroup --system app && adduser --system --ingroup app app && \
@@ -54,10 +58,10 @@ COPY --from=builder /usr/src/app/wheels /wheels
 COPY --from=builder /usr/src/app/requirements.txt .
 RUN pip install --no-cache-dir /wheels/*
 
-# 소스/엔트리포인트 복사
-COPY ./configs/docker/entrypoint.prod.sh $APP_HOME
-COPY . $APP_HOME
-RUN chmod +x $APP_HOME/entrypoint.prod.sh
+# 엔트리포인트 복사 + 윈도 개행 제거 + 실행권한
+COPY ./configs/docker/entrypoint.prod.sh /home/app/web/entrypoint.prod.sh
+RUN sed -i 's/\r$//' /home/app/web/entrypoint.prod.sh \
+ && chmod +x /home/app/web/entrypoint.prod.sh
 
 # 권한
 RUN chown -R app:app $APP_HOME

@@ -44,13 +44,20 @@ jobs:
           remote_user: ubuntu
           remote_key: ${{ secrets.KEY }}
 
-      # 서버에 접속한 뒤 deploy.sh(배포 스크립트)를 실행
-      - name: executing remote ssh key commands using password
-        uses: appleboy/ssh-action@master
+      # .github/workflows/deploy.yml 발췌
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.HOST }}
-          username: ubuntu
-          key: ${{ secrets.KEY }}
-          timeout: 30m
-          command_timeout: 20m
-          script: bash -lc 'chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh && /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh'
+          ssh-private-key: ${{ secrets.KEY }}
+
+      - name: Trust host
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run deploy script over SSH
+        env:
+          HOST: ${{ secrets.HOST }}
+        run: |
+          ssh -o StrictHostKeyChecking=yes ubuntu@$HOST \
+            'bash -lc "chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh && /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh"'
