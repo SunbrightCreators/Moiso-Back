@@ -58,6 +58,10 @@ COPY --from=builder /usr/src/app/wheels /wheels
 COPY --from=builder /usr/src/app/requirements.txt .
 RUN pip install --no-cache-dir /wheels/*
 
+# 소스 코드 전체를 이미지에 복사
+COPY . $APP_HOME
+
+
 # 엔트리포인트 복사 + 윈도 개행 제거 + 실행권한
 COPY ./configs/docker/entrypoint.prod.sh /home/app/web/entrypoint.prod.sh
 RUN sed -i 's/\r$//' /home/app/web/entrypoint.prod.sh \
