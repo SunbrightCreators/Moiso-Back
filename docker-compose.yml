@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Django 개발 서버.
+  # Django 개발 서버
   web:
     container_name: web
     build:
