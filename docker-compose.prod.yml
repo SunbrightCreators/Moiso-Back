@@ -1,5 +1,6 @@
 services:
   # Django 웹 애플리케이션을 실행
+
   web:
     container_name: web
     build:
