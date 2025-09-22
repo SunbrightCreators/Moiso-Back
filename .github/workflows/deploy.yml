@@ -51,4 +51,6 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ubuntu
           key: ${{ secrets.KEY }}
+          timeout: 30m
+          command_timeout: 20m
           script: bash -lc 'chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh && /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh'
