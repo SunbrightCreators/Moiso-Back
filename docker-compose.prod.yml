@@ -6,7 +6,14 @@ services:
       context: ./
       dockerfile: Dockerfile.prod # Dockerfile.prod 를 사용해 이미지를 빌드
     # Gunicorn으로 Django 실행
-    command: gunicorn configs.wsgi:application --bind 0.0.0.0:8000
+    command:
+      - gunicorn configs.wsgi:application --bind 0.0.0.0:8000
+      - --access-logfile
+      - "-"
+      - --error-logfile
+      - "-"
+      - --log-level
+      - info
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.production
       TZ: "Asia/Seoul"
@@ -18,24 +25,33 @@ services:
     expose:
       - "8000"
     # 컨테이너 시작 시 엔트리포인트 스크립트 실행
-    entrypoint:
-      - sh
-      - configs/docker/entrypoint.prod.sh # ← Dockerfile의 COPY 경로와 일치시키기
+    entrypoint: ["/home/app/web/configs/docker/entrypoint.prod.sh"] # ← Dockerfile의 COPY 경로와 일치시키기
+    restart: unless-stopped
+    networks: [appnet]
 
   # Nginx 리버스 프록시
   nginx:
     container_name: nginx
-    build: ./configs/nginx # ← 네 디렉토리명이 config인지 configs인지 확인!
+    build:
+      context: ./configs/nginx
+      dockerfile: Dockerfile
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
+      - ./configs/nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
     ports:
       - "80:80"
     depends_on:
       - web
     environment:
       TZ: "Asia/Seoul"
+    restart: unless-stopped
+    networks: [appnet]
 
 volumes:
   static:
   media:
+
+networks:
+  appnet:
+    driver: bridge
