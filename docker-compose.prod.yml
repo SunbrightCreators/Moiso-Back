@@ -1,0 +1,41 @@
+services:
+  # Django 웹 애플리케이션을 실행
+  web:
+    container_name: web
+    build:
+      context: ./
+      dockerfile: Dockerfile.prod # Dockerfile.prod 를 사용해 이미지를 빌드
+    # Gunicorn으로 Django 실행
+    command: gunicorn configs.wsgi:application --bind 0.0.0.0:8000
+    environment:
+      DJANGO_SETTINGS_MODULE: configs.settings.production
+      TZ: "Asia/Seoul"
+    env_file:
+      - ./env/.env.development # 환경 변수를 env 파일에서 로드
+    volumes:
+      - static:/home/app/web/static
+      - media:/home/app/web/media
+    expose:
+      - "8000"
+    # 컨테이너 시작 시 엔트리포인트 스크립트 실행
+    entrypoint:
+      - sh
+      - config/docker/entrypoint.prod.sh # ← Dockerfile의 COPY 경로와 일치시키기
+
+  # Nginx 리버스 프록시
+  nginx:
+    container_name: nginx
+    build: ./config/nginx # ← 네 디렉토리명이 config인지 configs인지 확인!
+    volumes:
+      - static:/home/app/web/static
+      - media:/home/app/web/media
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+    environment:
+      TZ: "Asia/Seoul"
+
+volumes:
+  static:
+  media:

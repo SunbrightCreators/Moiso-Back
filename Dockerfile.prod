@@ -1,0 +1,64 @@
+# ======================
+# BUILDER
+# ======================
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /usr/src/app
+
+# psycopg2, Pillow, 과학 스택 빌드에 필요한 헤더/툴
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc g++ \
+    libpq-dev \
+    libjpeg-dev zlib1g-dev \
+    tzdata \
+ && rm -rf /var/lib/apt/lists/*
+
+# 최신 pip
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# 의존성 wheel 미리 빌드
+COPY ./requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
+
+
+# ======================
+# FINAL
+# ======================
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TZ=Asia/Seoul \
+    HOME=/home/app \
+    APP_HOME=/home/app/web
+
+# 런타임 라이브러리(과학 스택용 libgomp1 포함)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libjpeg62-turbo zlib1g \
+    libgomp1 \
+    tzdata \
+ && rm -rf /var/lib/apt/lists/*
+
+# 앱 사용자/디렉터리
+RUN mkdir -p /home/app && \
+    addgroup --system app && adduser --system --ingroup app app && \
+    mkdir -p $APP_HOME/static $APP_HOME/media
+WORKDIR $APP_HOME
+
+# wheel 설치
+COPY --from=builder /usr/src/app/wheels /wheels
+COPY --from=builder /usr/src/app/requirements.txt .
+RUN pip install --no-cache-dir /wheels/*
+
+# 소스/엔트리포인트 복사
+COPY ./configs/docker/entrypoint.prod.sh $APP_HOME
+COPY . $APP_HOME
+RUN chmod +x $APP_HOME/entrypoint.prod.sh
+
+# 권한
+RUN chown -R app:app $APP_HOME
+USER app

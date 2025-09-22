@@ -1,0 +1,52 @@
+services:
+  # PostgreSQL 데이터베이스
+  db:
+    container_name: db
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: sunnydb
+      POSTGRES_USER: "kim-yeon-woo" # 하이픈 포함이라면 따옴표 권장
+      POSTGRES_PASSWORD: 0000
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+      - ./env/.env.production
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "kim-yeon-woo" -d sunnydb']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Django 개발 서버
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: >
+      sh -c "python manage.py migrate --settings=configs.settings.development
+      && python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development"
+    environment:
+      DATABASE_ENGINE: django.db.backends.postgresql
+      DATABASE_NAME: sunnydb
+      DATABASE_USER: "kim-yeon-woo"
+      DATABASE_PASSWORD: "0000"
+      DATABASE_HOST: db
+      DATABASE_PORT: "5432"
+      DJANGO_SETTINGS_MODULE: configs.settings.development
+      PYTHONPATH: /app
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
