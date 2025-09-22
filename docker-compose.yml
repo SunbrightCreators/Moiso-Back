@@ -13,7 +13,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     env_file:
-      - ./env/.env.production
+      - .env
     healthcheck:
       test: ["CMD-SHELL", 'pg_isready -U "kim-yeon-woo" -d sunnydb']
       interval: 5s
