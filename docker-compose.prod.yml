@@ -11,7 +11,7 @@ services:
       DJANGO_SETTINGS_MODULE: configs.settings.production
       TZ: "Asia/Seoul"
     env_file:
-      - .env # 환경 변수를 env 파일에서 로드
+      - .env
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
