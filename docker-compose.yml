@@ -4,16 +4,12 @@ services:
     container_name: db
     image: postgres:16
     restart: always
-    environment:
-      POSTGRES_DB: sunnydb
-      POSTGRES_USER: "kim-yeon-woo" # 하이픈 포함이라면 따옴표 권장
-      POSTGRES_PASSWORD: 0000
+    env_file:
+      - ./.env
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    env_file:
-      - .env
     healthcheck:
       test: ["CMD-SHELL", 'pg_isready -U "kim-yeon-woo" -d sunnydb']
       interval: 5s
@@ -31,14 +27,8 @@ services:
       sh -c "python manage.py migrate --settings=configs.settings.development
       && python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development"
     env_file:
-      - .env
+      - ./.env
     environment:
-      DATABASE_ENGINE: django.db.backends.postgresql
-      DATABASE_NAME: sunnydb
-      DATABASE_USER: "kim-yeon-woo"
-      DATABASE_PASSWORD: "0000"
-      DATABASE_HOST: db
-      DATABASE_PORT: "5432"
       DJANGO_SETTINGS_MODULE: configs.settings.development
       PYTHONPATH: /app
     restart: always
