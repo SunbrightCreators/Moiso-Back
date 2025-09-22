@@ -26,7 +26,7 @@ services:
     expose:
       - "8000"
     # 컨테이너 시작 시 엔트리포인트 스크립트 실행
-    entrypoint: ["/home/app/web/configs/docker/entrypoint.prod.sh"] # ← Dockerfile의 COPY 경로와 일치시키기
+    entrypoint: ["/home/app/web/entrypoint.prod.sh"] # ← Dockerfile의 COPY 경로와 일치시키기
     restart: unless-stopped
     networks: [appnet]
 
