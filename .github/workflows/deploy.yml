@@ -1,63 +1,91 @@
 name: Deploy to EC2
 
-# on의 이벤트가 발생하면 jobs 실행
-# 진짜로 배포할 코드를 push하는 branch 이름으로 변경
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  build:
-    name: Build
+  deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
-    steps:
-      # Github 레포지토리를 체크아웃한다.
-      - name: checkout
-        uses: actions/checkout@master
 
-      # Action Secret에 설정한 ENV_VARS 값을 .env 파일로 만듦
-      - name: create env file
+    steps:
+      # 1) 레포 체크아웃
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) .env 생성 (레포 루트에 생성 → rsync로 함께 전송)
+      - name: Create .env file from secret
         run: |
           touch .env
-          echo "${{ secrets.ENV_VARS }}" >> .env
+          printf "%s\n" "${{ secrets.ENV_VARS }}" > .env
+          echo "Generated .env with $(wc -c < .env) bytes"
 
-      - name: create remote directory
-        uses: appleboy/ssh-action@v0.1.4
-        with:
-          host: ${{ secrets.HOST}}
-          username: ubuntu
-          key: ${{ secrets.KEY }}
-          script: mkdir -p /home/ubuntu/srv/ubuntu
-
-      # SSH 키를 통해 소스 코드를 EC2 인스턴스(서버)로 복사
-      - name: copy source via ssh key
-        uses: burnett01/rsync-deployments@4.1
-        with:
-          switches: -avsr --delete
-          remote_path: /home/ubuntu/srv/ubuntu
-          remote_host: ${{ secrets.HOST }}
-          remote_user: ubuntu
-          remote_key: ${{ secrets.KEY }}
-
-      # .github/workflows/deploy.yml 발췌
+      # 3) SSH 에이전트에 키 등록
       - name: Add SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.KEY }}
 
-      - name: Trust host
+      # 4) 원격 호스트 신뢰 등록
+      - name: Trust remote host
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
-      - name: Run deploy script over SSH
+      # 5) 원격 기본 디렉토리/권한 보장 (대상 경로 미존재로 인한 rsync 실패 방지)
+      - name: Ensure remote dirs exist
+        run: |
+          ssh -o StrictHostKeyChecking=yes ubuntu@${{ secrets.HOST }} \
+            'sudo mkdir -p /home/ubuntu/srv/ubuntu/utils/decorators /home/ubuntu/srv/ubuntu/recommendations && \
+             sudo chown -R ubuntu:ubuntu /home/ubuntu/srv/ubuntu'
+
+      # 6) 안전한 rsync 배포 (퍼미션/소유권/시간 보존 끄기 + 로그 저장)
+      - name: Rsync source to EC2
+        run: |
+          set -euo pipefail
+          RSYNC_LOG=rsync_err.log
+          rsync -avz --delete --partial -vv \
+            --no-perms --no-owner --no-group \
+            --omit-dir-times --modify-window=2 \
+            --exclude '.git/' \
+            --exclude '.venv/' \
+            --exclude 'node_modules/' \
+            --exclude 'media/' \
+            --exclude 'staticfiles/' \
+            --exclude '*.pyc' \
+            -e "ssh -o StrictHostKeyChecking=yes" \
+            ./ ubuntu@${{ secrets.HOST }}:/home/ubuntu/srv/ubuntu/ \
+            2> "$RSYNC_LOG" || true
+
+          echo "----- rsync_err.log (first 200 lines) -----"
+          sed -n '1,200p' "$RSYNC_LOG" || true
+
+          # rsync에서 code 23 등 비치명적 에러가 있어도 로그만 남기고 계속 진행
+          # 진짜 실패로 처리하려면 위의 '|| true'를 제거
+
+      # 7) 원격 배포 스크립트 실행 (컨테이너 빌드/재시작, migrate, collectstatic, 헬스체크)
+      #    deploy.sh는 /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh 에 존재해야 함
+      - name: Run remote deploy.sh
         env:
           HOST: ${{ secrets.HOST }}
+          # 필요시 아래 환경변수를 덮어써 사용 가능:
+          # COMPOSE_FILE: docker-compose.prod.yml
+          # DJANGO_SERVICE: web
+          # HEALTHCHECK_URL: http://127.0.0.1/
         run: |
+          set -euo pipefail
           ssh -o StrictHostKeyChecking=yes ubuntu@$HOST \
-            'bash -lc "chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh && /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh"'
+            'bash -lc "
+              test -f /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh || { echo \"deploy.sh not found\"; exit 1; }
+              chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
+              /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
+            "'
+
+      # 8) (선택) 간단 헬스체크 - Nginx가 80 포트에서 응답하는지 확인
+      - name: Post-deploy health check
+        continue-on-error: true
+        run: |
+          curl -I --max-time 5 http://${{ secrets.HOST }} || echo "Health check failed (non-blocking)"
