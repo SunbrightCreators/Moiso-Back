@@ -30,3 +30,4 @@ RUN pip install --no-cache-dir --no-build-isolation -r requirements.txt
 COPY . .
 
 # 기본 실행은 compose에서 지정(runserver 등)
+
