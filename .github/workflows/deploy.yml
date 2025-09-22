@@ -51,4 +51,4 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ubuntu
           key: ${{ secrets.KEY }}
-          script: sh /home/ubuntu/srv/ubuntu/config/scripts/deploy.sh
+          script: sh /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
