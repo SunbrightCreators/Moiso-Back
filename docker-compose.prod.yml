@@ -32,6 +32,8 @@ services:
     entrypoint: ["/home/app/web/entrypoint.prod.sh"] # ← Dockerfile의 COPY 경로와 일치시키기
     restart: unless-stopped
     networks: [appnet]
+    dns:
+      - 169.254.169.253
 
   # Nginx 리버스 프록시
   nginx:
