@@ -5,7 +5,7 @@ services:
     image: postgres:16
     restart: always
     env_file:
-      - .env
+      - env/.env.development
     ports:
       - "5433:5432"
     volumes:
@@ -27,7 +27,7 @@ services:
       sh -c "python manage.py migrate --settings=configs.settings.development
       && python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development"
     env_file:
-      - .env
+      - env/.env.development
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.development
       PYTHONPATH: /app

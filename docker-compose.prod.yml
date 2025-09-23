@@ -19,7 +19,7 @@ services:
       - --log-level
       - info
     env_file:
-      - .env
+      - env/.env.production
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.production
       TZ: "Asia/Seoul"
