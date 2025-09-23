@@ -17,10 +17,11 @@ jobs:
         uses: actions/checkout@v4
 
       # 2) .env 생성 (레포 루트에 생성 → rsync로 함께 전송)
-      - name: Create .env file from secret
+      - name: Create .env file from secret (safe)
         run: |
-          touch .env
-          printf "%s\n" "${{ secrets.ENV_VARS }}" > .env
+          cat > .env <<'EOF'
+          ${{ secrets.ENV_VARS }}
+          EOF
           echo "Generated .env with $(wc -c < .env) bytes"
 
       # 3) SSH 에이전트에 키 등록
