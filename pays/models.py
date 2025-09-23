@@ -30,6 +30,8 @@ class Order(models.Model):
         "pays.Payment",
         on_delete=models.PROTECT,
         related_name='order',
+        null=True,
+        blank=True,
     )
     item = models.JSONField(
         default=dict,          
