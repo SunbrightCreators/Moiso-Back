@@ -19,7 +19,7 @@ jobs:
       # Action Secret에 설정한 ENV_VARS 값을 .env 파일로 만듦
       - name: create env file
         run: |
-          touch .env
+          mkdir -p env
           echo "${{ secrets.ENV_VARS }}" >> env/.env.production
 
       # 3) SSH 에이전트에 키 등록
