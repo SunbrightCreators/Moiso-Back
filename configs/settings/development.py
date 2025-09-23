@@ -1,7 +1,6 @@
 from .base import *
-import environ
 
-environ.Env.read_env(os.path.join(BASE_DIR, 'env', '.env.development'))
+DEBUG = True
 
 DATABASES = {
     'default': env.db(),

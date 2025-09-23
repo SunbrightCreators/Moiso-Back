@@ -9,31 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env(DEBUG=(bool, False))
 
-ENV_PATH = os.path.join(BASE_DIR, '.env')
-if os.path.exists(ENV_PATH):
-    environ.Env.read_env(ENV_PATH)  # 로컬/개발에서만 파일이 있으면 읽음
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-try:
-    SECRET_KEY = env("SECRET_KEY")
-except Exception as e:
-    from django.core.exceptions import ImproperlyConfigured
-    raise ImproperlyConfigured(
-        f"""
-🚨 SECRET_KEY가 설정되지 않았습니다!
-
-- 현재 BASE_DIR = {BASE_DIR}
-- 읽으려는 .env 파일 경로 = {ENV_PATH}
-- .env 파일 존재 여부 = {os.path.exists(ENV_PATH)}
-
-확인하세요:
-1) {ENV_PATH} 파일이 실제로 존재하는지?
-2) .env 안에 'SECRET_KEY=...' 줄이 있는지?
-3) docker-compose.prod.yml 의 env_file: .env 이 올바르게 연결되었는지?
-4) 컨테이너 안에서 'printenv SECRET_KEY' 해봤을 때 값이 나오는지?
-
-원래 에러: {str(e)}
-"""
-    )
+SECRET_KEY = env("SECRET_KEY")
 DEBUG = env('DEBUG')
 NCLOUD_CLIENT_ID = env('NCLOUD_CLIENT_ID')
 NCLOUD_CLIENT_SECRET = env('NCLOUD_CLIENT_SECRET')
