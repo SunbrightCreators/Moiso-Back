@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Docker 설치 여부 확인, 없다면 설치
 if ! type docker > /dev/null
@@ -25,4 +26,5 @@ fi
 
 # Docker Compose로 서버 빌드 및 실행 (docker-compose.prod.yml 사용)
 echo "start docker-compose up: ubuntu"
-sudo docker-compose -p moiso-prod -f /home/ubuntu/srv/ubuntu/docker-compose.prod.yml up -d --build --remove-orphans
+cd /home/ubuntu/srv/ubuntu
+sudo docker-compose -p moiso-prod -f docker-compose.prod.yml up -d --build --remove-orphans
