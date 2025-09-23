@@ -22,7 +22,6 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.production
       TZ: "Asia/Seoul"
-      SECRET_KEY: "${SECRET_KEY}"
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
