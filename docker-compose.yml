@@ -30,6 +30,7 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.development
+      SECRET_KEY: "${SECRET_KEY}"
       PYTHONPATH: /app
     restart: always
     ports:

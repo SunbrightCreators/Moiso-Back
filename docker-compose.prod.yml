@@ -18,11 +18,12 @@ services:
       - "-"
       - --log-level
       - info
+    env_file:
+      - .env
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.production
       TZ: "Asia/Seoul"
-    env_file:
-      - .env
+      SECRET_KEY: "${SECRET_KEY}"
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
