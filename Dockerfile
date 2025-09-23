@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /home/app/web
 
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential gcc g++ \
     cmake \                    
