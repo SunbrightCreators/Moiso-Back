@@ -204,12 +204,7 @@ class FundingDetailBaseSerializer(FundingListSerializer):
     
     # 상세는 제안글의 좌표 사용
     def get_position(self, obj):
-        pos = getattr(obj.proposal, "position", None)
-        if isinstance(pos, dict):
-            lat, lng = pos.get("latitude"), pos.get("longitude")
-            if lat is not None and lng is not None:
-                return {"latitude": float(lat), "longitude": float(lng)}
-        return None
+        return obj.proposal.position
 
     def get_video(self, obj):
         if not obj.video:
