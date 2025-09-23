@@ -49,8 +49,8 @@ class Proposal(models.Model):
         default=dict,
         help_text='''
         {
-            "latitude": 126.978388,
-            "longitude": 37.56661
+            "latitude": 37.56661,
+            "longitude": 126.978388
         }
         '''
     )
