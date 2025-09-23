@@ -1,5 +1,6 @@
 services:
   # PostgreSQL 데이터베이스
+
   db:
     container_name: db
     image: postgres:16
