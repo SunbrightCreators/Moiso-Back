@@ -5,11 +5,13 @@ import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-
 # env
 
 env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+ENV_PATH = os.path.join(BASE_DIR, '.env')
+if os.path.exists(ENV_PATH):
+    environ.Env.read_env(ENV_PATH)  # 로컬/개발에서만 파일이 있으면 읽음
 
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
