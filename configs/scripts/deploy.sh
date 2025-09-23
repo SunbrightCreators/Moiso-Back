@@ -25,4 +25,4 @@ fi
 
 # Docker Compose로 서버 빌드 및 실행 (docker-compose.prod.yml 사용)
 echo "start docker-compose up: ubuntu"
-sudo docker-compose -f /home/ubuntu/srv/ubuntu/docker-compose.prod.yml up --build -d
+sudo docker-compose -p moiso-prod -f /home/ubuntu/srv/ubuntu/docker-compose.prod.yml up -d --build --remove-orphans
