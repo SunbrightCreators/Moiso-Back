@@ -68,8 +68,8 @@ class GeocodingService:
         first_address = response['addresses'][0]
 
         return  {
-            'latitude': float(first_address['x']),
-            'longitude': float(first_address['y'])
+            'latitude': float(first_address['y']),
+            'longitude': float(first_address['x'])
         }
 
     def get_address_to_legal(self, query_address:str) -> list[dict]:
@@ -102,8 +102,8 @@ class GeocodingService:
                     'eupmyundong': eupmyundong,
                 },
                 'position': {
-                    'latitude': float(address.get('x')),
-                    'longitude': float(address.get('y')),
+                    'latitude': float(address.get('y')),
+                    'longitude': float(address.get('x')),
                 }
             })
 
@@ -166,8 +166,8 @@ class GeocodingService:
                     'road_detail': road_detail,
                 },
                 'position': {
-                    'latitude': float(address.get('x')),
-                    'longitude': float(address.get('y')),
+                    'latitude': float(address.get('y')),
+                    'longitude': float(address.get('x')),
                 }
             })
 
@@ -229,7 +229,7 @@ class ReverseGeocodingService:
             address (AddressType.LegalType): 법정동 주소
         '''
         response = self.get_reverse_geocoding(
-            coords=f"{query_position['latitude']},{query_position['longitude']}",
+            coords=f"{query_position['longitude']},{query_position['latitude']}",
             orders=['legalcode']
         )
 
@@ -257,7 +257,7 @@ class ReverseGeocodingService:
             address (AddressType.FullType): 전체 주소
         '''
         response = self.get_reverse_geocoding(
-            coords=f"{query_position['latitude']},{query_position['longitude']}",
+            coords=f"{query_position['longitude']},{query_position['latitude']}",
             orders=['legalcode','addr','roadaddr']
         )
 
