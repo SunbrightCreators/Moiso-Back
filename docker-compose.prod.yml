@@ -23,9 +23,11 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: configs.settings.production
       TZ: "Asia/Seoul"
+      FT_MODEL_PATH: /models/cc.ko.300.bin
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
+      - /mnt/models:/models:ro
     expose:
       - "8000"
     # 컨테이너 시작 시 엔트리포인트 스크립트 실행
