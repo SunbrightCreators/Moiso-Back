@@ -3,6 +3,7 @@
 
 set -e
 
+
 # 1) 모델 존재 확인
 : "${FT_MODEL_PATH:=/models/cc.ko.300.bin}"
 if [ ! -f "$FT_MODEL_PATH" ]; then
