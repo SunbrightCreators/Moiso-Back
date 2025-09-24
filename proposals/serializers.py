@@ -112,26 +112,6 @@ class ProposalListSerializer(serializers.ModelSerializer):
 
         return {'name': masked, 'profile_image': profile_image}
 
-
-# ── 지도(동 이하) 목록용 ─────────────────────────────────────────────────
-class ProposalMapItemSerializer(ProposalListSerializer):
-    position = serializers.SerializerMethodField()
-
-    class Meta(ProposalListSerializer.Meta):
-        fields = ProposalListSerializer.Meta.fields + ('position',)
-
-    def get_position(self, obj: Proposal):
-        pos = obj.position or {}
-        return {"latitude": pos.get("latitude"), "longitude": pos.get("longitude")}
-    
-    # founder 모드일 때 is_liked 제거
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        profile = (self.context.get("profile") or "").lower()
-        if profile == "founder":
-            data.pop("is_liked", None)
-        return data
-    
 class ProposalZoomFounderItemSerializer(ProposalListSerializer):
     has_funding = serializers.BooleanField()
     likes_analysis = serializers.SerializerMethodField()
@@ -181,12 +161,11 @@ class ProposalZoomFounderItemSerializer(ProposalListSerializer):
         return data
 
 
-class ProposalDetailSerializer(ProposalMapItemSerializer):
+class ProposalDetailSerializer(ProposalListSerializer):
     has_funding = serializers.BooleanField()
 
-    class Meta(ProposalMapItemSerializer.Meta):
-        fields = ProposalMapItemSerializer.Meta.fields + ("has_funding",)
-
+    class Meta(ProposalListSerializer.Meta):
+        fields = ProposalListSerializer.Meta.fields + ("has_funding",)
 
     def get_user(self, obj: Proposal):
         base = super().get_user(obj)  # name/profile_image 재사용

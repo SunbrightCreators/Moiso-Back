@@ -162,33 +162,6 @@ class FundingListSerializer(serializers.ModelSerializer):
             return _one(v)
         return False
 
-
-#  지도 상세 리스트용(동 이하): position 추가
-class FundingMapSerializer(FundingListSerializer):
-    position = serializers.SerializerMethodField()
-
-    class Meta(FundingListSerializer.Meta):
-        fields = FundingListSerializer.Meta.fields + ('position',)
-
-    def get_position(self, obj):
-        geocoder = self.context.get("geocoder")   # ← 뷰에서 주입
-        addr = (obj.proposal.address or {})
-        full_addr = " ".join(filter(None, [addr.get("sido"), addr.get("sigungu"), addr.get("eupmyundong")]))
-        try:
-            pos = geocoder.get_address_to_position(query_address=full_addr)
-        except Exception:
-            pos = {"latitude": None, "longitude": None}
-        return {"latitude": pos.get("latitude"), "longitude": pos.get("longitude")}
-    
-    # to_representation에서 founder면 is_liked 제거 하는 처리 유지
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        profile = (self.context.get("profile") or "").lower()
-        if profile == "founder":
-            data.pop("is_liked", None) 
-        return data
-
-
 class RewardItemSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
 
@@ -231,12 +204,7 @@ class FundingDetailBaseSerializer(FundingListSerializer):
     
     # 상세는 제안글의 좌표 사용
     def get_position(self, obj):
-        pos = getattr(obj.proposal, "position", None)
-        if isinstance(pos, dict):
-            lat, lng = pos.get("latitude"), pos.get("longitude")
-            if lat is not None and lng is not None:
-                return {"latitude": float(lat), "longitude": float(lng)}
-        return None
+        return obj.proposal.position
 
     def get_video(self, obj):
         if not obj.video:
