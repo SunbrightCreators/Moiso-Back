@@ -51,4 +51,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.KEY }}
           script: |
-            bash -lc '/home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh'
+            set -e
+            # 권한/개행 정리
+            sed -i 's/\r$//' /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
+            chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
+            # 실행 (실행비트가 없어도 확실히 하려면 bash로 읽어 실행)
+            bash /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
