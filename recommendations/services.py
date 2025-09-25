@@ -1,30 +1,26 @@
 import os
-from typing import Literal, Optional, Tuple, Dict, Any, Set, List
+from typing import Literal, Optional, Dict, Any, Set, List
 import heapq
 import re
 import numpy as np
+from dataclasses import dataclass
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Q, Case, When, Value
+from django.db.models import Case, Count, OuterRef, Q, Subquery, Value, When, BooleanField, IntegerField
+from django.db.models.functions import Coalesce
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException, PermissionDenied
 from kiwipiepy import Kiwi
 import fasttext
 import fasttext.util
 from sklearn.metrics.pairwise import cosine_similarity
-from utils.choices import ProfileChoices
+from utils.choices import ProfileChoices, FounderTargetChoices
 from utils.constants import CacheKey
 from utils.decorators.service import require_profile
+from utils.times import _parse_hhmm, _minutes_between, _overlap_minutes
+from accounts.models import ProposerLevel
 from proposals.models import Proposal
 from proposals.serializers import ProposalListSerializer
-from utils.choices import FounderTargetChoices
-from django.db.models import (
-    Case, When, Value, IntegerField, F, Q, Count, Subquery, OuterRef, BooleanField
-)
-from django.db.models.functions import Coalesce
-from accounts.models import ProposerLevel
-from utils.times import _parse_hhmm, _minutes_between, _overlap_minutes
-from dataclasses import dataclass
 
 kiwi = Kiwi()
 korean_stopwords = [
