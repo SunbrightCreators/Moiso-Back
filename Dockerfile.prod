@@ -3,10 +3,13 @@
 # ======================
 FROM python:3.12-slim AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
 WORKDIR /usr/src/app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
 
 # psycopg2, Pillow, 과학 스택 빌드에 필요한 헤더/툴
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,10 +20,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # 최신 pip
-RUN python -m pip install --upgrade pip setuptools wheel
+RUN python -m pip install --upgrade "pip==25.2" "setuptools==80.9.0" wheel
 
 # 의존성 wheel 미리 빌드
 COPY ./requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels "numpy==1.26.4"
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
 
 
@@ -29,23 +33,25 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requir
 # ======================
 FROM python:3.12-slim
 
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Seoul \
     HOME=/home/app \
     APP_HOME=/home/app/web
 
-# 런타임 라이브러리(과학 스택용 libgomp1 포함)
+# 런타임 의존성만 최소 설치
+# - libgomp1 / libstdc++6: scikit-learn/fasttext OpenMP/CPP 런타임
+# - libjpeg/zlib: Pillow
+# - libpq5: psycopg2-binary 실행 시 필요할 수 있음(안전 차원)
+# - ca-certificates: 외부 요청(https) 안정화
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
+    libgomp1 libstdc++6 \
     libjpeg62-turbo zlib1g \
-    libgomp1 \
-    tzdata \
- && rm -rf /var/lib/apt/lists/*
-
- 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 libjpeg62-turbo zlib1g libgomp1 tzdata ca-certificates \
+    libpq5 \
+    tzdata ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 # 앱 사용자/디렉터리
@@ -57,17 +63,20 @@ WORKDIR $APP_HOME
 # wheel 설치
 COPY --from=builder /usr/src/app/wheels /wheels
 COPY --from=builder /usr/src/app/requirements.txt .
-RUN pip install --no-cache-dir /wheels/*
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
 
 # 소스 코드 전체를 이미지에 복사
 COPY . $APP_HOME
-
 
 # 엔트리포인트 복사 + 윈도 개행 제거 + 실행권한
 COPY ./configs/docker/entrypoint.prod.sh /home/app/web/entrypoint.prod.sh
 RUN sed -i 's/\r$//' /home/app/web/entrypoint.prod.sh \
  && chmod +x /home/app/web/entrypoint.prod.sh
 
+
 # 권한
 RUN chown -R app:app $APP_HOME
 USER app
+
+# 서비스 포트 (gunicorn 8000 가정)
+EXPOSE 8000
