@@ -144,7 +144,7 @@ class RecommendationScrapService:
         valid_vectors = list()
         for post in posts:
             vector = cache.get(cache_key_method(post.id))
-            if not vector:
+            if vector is None:
                 # 각 게시물 벡터 계산
                 vector = self.ai.vectorize(post.title + post.content)
                 cache.set(cache_key_method(post.id), vector, timeout=365*24*60*60*1) # 수정 불가능하여 데이터가 변경되는 경우가 없으므로 1년 캐싱
