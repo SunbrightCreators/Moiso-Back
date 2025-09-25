@@ -218,6 +218,9 @@ class RecommendationScrapService:
             'similarity_order'
         ).with_analytics(
         ).with_user(
+        ).with_flags(
+            user=self.request.user,
+            profile=ProfileChoices.founder.value
         )
 
         serializer = ProposalListSerializer(
