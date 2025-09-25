@@ -214,7 +214,10 @@ class RecommendationScrapService:
         top_recommended_proposals = Proposal.objects.filter(
             id__in=top_recommended_proposal_id_list
         ).annotate(
-            similarity_order=Case(*[When(id=pk, then=Value(pos)) for pos, pk in enumerate(top_recommended_proposal_id_list)])
+            similarity_order=Case(
+                *[When(id=pk, then=Value(pos)) for pos, pk in enumerate(top_recommended_proposal_id_list)],
+                output_field=IntegerField()
+            )
         ).order_by(
             'similarity_order'
         ).with_analytics(
