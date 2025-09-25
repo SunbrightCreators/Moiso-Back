@@ -25,6 +25,7 @@ pybind11==3.0.1
 pycryptodome==3.19.0
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
+redis==6.4.0
 requests==2.32.4
 scikit-learn==1.7.1
 scipy==1.13.1
