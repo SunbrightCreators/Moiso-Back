@@ -144,16 +144,11 @@ class RecommendationScrapService:
         valid_vectors = list()
         for post in posts:
             vector = cache.get(cache_key_method(post.id))
-            if not vector:
-                # 각 게시물 벡터 계산
-                vector = self.ai.vectorize(post.title + post.content)
+            if vector is None: # 캐시가 없거나 유효한 벡터가 아닐 때
+                vector = self.ai.vectorize(' '.join([post.title, post.content])) # 게시물 벡터 계산
                 cache.set(cache_key_method(post.id), vector, timeout=365*24*60*60*1) # 수정 불가능하여 데이터가 변경되는 경우가 없으므로 1년 캐싱
-            # 유효한 벡터만 필터링
-            if vector is not None:
-                if option == 'vector':
-                    valid_vectors.append(vector)
-                else:
-                    valid_vectors.append((post, vector))
+            if vector is not None: # 캐시 또는 새로 계산한 값이 유효한 벡터일 때
+                valid_vectors.append(vector if option == 'vector' else (post, vector))
         return valid_vectors
 
     @require_profile(ProfileChoices.founder)
