@@ -1,8 +1,5 @@
 from .base import *
 
-# 배포 환경용 env 파일 읽기
-environ.Env.read_env(os.path.join(BASE_DIR, "env", ".env.production"))
-
 DEBUG = False
 
 DATABASES = {
