@@ -76,7 +76,11 @@ class ProposerScrapProposalService:
         ).order_by(
             '-proposer_scrap_proposal__created_at',
         )
-        serializer = ProposalListSerializer(proposals, many=True)
+        serializer = ProposalListSerializer(
+            proposals,
+            context={"request": self.request, "profile": ProfileChoices.proposer.value},
+            many=True
+        )
         return serializer.data
 
 class FounderScrapProposalService:
@@ -120,7 +124,11 @@ class FounderScrapProposalService:
         ).order_by(
             '-founder_scrap_proposal__created_at',
         )
-        serializer = ProposalListSerializer(proposals, many=True)
+        serializer = ProposalListSerializer(
+            proposals,
+            context={"request": self.request, "profile": ProfileChoices.founder.value},
+            many=True
+        )
         return serializer.data
     
 

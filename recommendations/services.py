@@ -220,7 +220,11 @@ class RecommendationScrapService:
         ).with_user(
         )
 
-        serializer = ProposalListSerializer(top_recommended_proposals, many=True)
+        serializer = ProposalListSerializer(
+            top_recommended_proposals,
+            context={"request": self.request, "profile": ProfileChoices.founder.value},
+            many=True
+        )
         result = serializer.data
 
         cache.set(
