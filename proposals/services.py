@@ -73,6 +73,9 @@ class ProposerScrapProposalService:
             eupmyundong=eupmyundong,
         ).with_analytics(
         ).with_user(
+        ).with_flags(
+            user=self.request.user,
+            profile=ProfileChoices.proposer.value
         ).order_by(
             '-proposer_scrap_proposal__created_at',
         )
@@ -121,6 +124,9 @@ class FounderScrapProposalService:
             eupmyundong=eupmyundong,
         ).with_analytics(
         ).with_user(
+        ).with_flags(
+            user=self.request.user,
+            profile=ProfileChoices.founder.value
         ).order_by(
             '-founder_scrap_proposal__created_at',
         )
