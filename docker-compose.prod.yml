@@ -16,6 +16,7 @@ services:
     volumes:
       - static:/home/app/web/static
       - media:/home/app/web/media
+      - /home/ubuntu/ft_models:/models:ro
     expose:
       - "8000"
     # 컨테이너가 시작될 때 entrypoint.prod.sh 스크립트를 실행하여 초기화 작업을 수행
