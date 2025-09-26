@@ -1,30 +1,26 @@
 import os
-from typing import Literal, Optional, Tuple, Dict, Any, Set, List
+from typing import Literal, Optional, Dict, Any, Set, List
 import heapq
 import re
 import numpy as np
+from dataclasses import dataclass
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Q, Case, When, Value
+from django.db.models import Case, Count, OuterRef, Q, Subquery, Value, When, BooleanField, IntegerField
+from django.db.models.functions import Coalesce
 from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException, PermissionDenied
 from kiwipiepy import Kiwi
 import fasttext
 import fasttext.util
 from sklearn.metrics.pairwise import cosine_similarity
-from utils.choices import ProfileChoices
+from utils.choices import ProfileChoices, FounderTargetChoices
 from utils.constants import CacheKey
 from utils.decorators.service import require_profile
+from utils.times import _parse_hhmm, _minutes_between, _overlap_minutes
+from accounts.models import ProposerLevel
 from proposals.models import Proposal
 from proposals.serializers import ProposalListSerializer
-from utils.choices import FounderTargetChoices
-from django.db.models import (
-    Case, When, Value, IntegerField, F, Q, Count, Subquery, OuterRef, BooleanField
-)
-from django.db.models.functions import Coalesce
-from accounts.models import ProposerLevel
-from utils.times import _parse_hhmm, _minutes_between, _overlap_minutes
-from dataclasses import dataclass
 
 kiwi = Kiwi()
 korean_stopwords = [
@@ -148,16 +144,11 @@ class RecommendationScrapService:
         valid_vectors = list()
         for post in posts:
             vector = cache.get(cache_key_method(post.id))
-            if not vector:
-                # 각 게시물 벡터 계산
-                vector = self.ai.vectorize(post.title + post.content)
+            if vector is None: # 캐시가 없거나 유효한 벡터가 아닐 때
+                vector = self.ai.vectorize(' '.join([post.title, post.content])) # 게시물 벡터 계산
                 cache.set(cache_key_method(post.id), vector, timeout=365*24*60*60*1) # 수정 불가능하여 데이터가 변경되는 경우가 없으므로 1년 캐싱
-            # 유효한 벡터만 필터링
-            if vector is not None:
-                if option == 'vector':
-                    valid_vectors.append(vector)
-                else:
-                    valid_vectors.append((post, vector))
+            if vector is not None: # 캐시 또는 새로 계산한 값이 유효한 벡터일 때
+                valid_vectors.append(vector if option == 'vector' else (post, vector))
         return valid_vectors
 
     @require_profile(ProfileChoices.founder)
@@ -214,14 +205,24 @@ class RecommendationScrapService:
         top_recommended_proposals = Proposal.objects.filter(
             id__in=top_recommended_proposal_id_list
         ).annotate(
-            similarity_order=Case(*[When(id=pk, then=Value(pos)) for pos, pk in enumerate(top_recommended_proposal_id_list)])
+            similarity_order=Case(
+                *[When(id=pk, then=Value(pos)) for pos, pk in enumerate(top_recommended_proposal_id_list)],
+                output_field=IntegerField()
+            )
         ).order_by(
             'similarity_order'
         ).with_analytics(
         ).with_user(
+        ).with_flags(
+            user=self.request.user,
+            profile=ProfileChoices.founder.value
         )
 
-        serializer = ProposalListSerializer(top_recommended_proposals, many=True)
+        serializer = ProposalListSerializer(
+            top_recommended_proposals,
+            context={"request": self.request, "profile": ProfileChoices.founder.value},
+            many=True
+        )
         result = serializer.data
 
         cache.set(
