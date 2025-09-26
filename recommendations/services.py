@@ -12,7 +12,6 @@ from django.http import HttpRequest
 from rest_framework.exceptions import ValidationError, NotFound, APIException, PermissionDenied
 from kiwipiepy import Kiwi
 import fasttext
-import fasttext.util
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.choices import ProfileChoices, FounderTargetChoices
 from utils.constants import CacheKey
@@ -39,43 +38,29 @@ korean_stopwords = [
     '하나', '둘', '셋', '넷', '다섯'
 ]
 
-def download_fasttext_model(lang='ko'):
+# ---- FastText lazy loader (환경변수 경로만 읽음) ----
+FASTTEXT_MODEL_PATH = os.getenv("FASTTEXT_MODEL_PATH")
+_fasttext_model = None
+
+def get_fasttext_model():
     """
-    FastText 사전훈련 모델을 다운로드합니다.
+    호스트에 놓여 있는 FastText .bin을 1회 로드해 재사용.
+    컨테이너 재시작/재생성에도 바인드 마운트만 유지되면 재다운로드 없음.
     """
+    global _fasttext_model
+    if _fasttext_model is not None:
+        return _fasttext_model
+
+    if not FASTTEXT_MODEL_PATH:
+        raise APIException("FASTTEXT_MODEL_PATH가 설정되지 않았어요.")
+    if not os.path.exists(FASTTEXT_MODEL_PATH):
+        raise APIException(f"모델 파일이 없어요: {FASTTEXT_MODEL_PATH}")
+
     try:
-        # 모델 저장 경로 설정
-        model_dir = os.path.join(settings.BASE_DIR, 'recommendations')
-        os.makedirs(model_dir, exist_ok=True)
-
-        # 현재 작업 디렉토리를 모델 디렉토리로 변경
-        original_dir = os.getcwd()
-        os.chdir(model_dir)
-
-        # 모델 다운로드 (약 7GB for Korean)
-        print(f"{lang} 모델 다운로드 중...")
-        fasttext.util.download_model(lang, if_exists='ignore')
-
-        # 원래 디렉토리로 복원
-        os.chdir(original_dir)
-
-        # 모델 파일 경로 반환
-        model_path = os.path.join(model_dir, f'cc.{lang}.300.bin')
-        return model_path
-
+        _fasttext_model = fasttext.load_model(FASTTEXT_MODEL_PATH)
+        return _fasttext_model
     except Exception as e:
-        print(f"모델 다운로드 실패: {e}")
-        os.chdir(original_dir)  # 오류 시에도 디렉토리 복원
-        return None
-
-try:
-    model_path = os.path.join(settings.BASE_DIR, 'recommendations', 'cc.ko.300.bin')
-    if not os.path.exists(model_path):
-        model_path = download_fasttext_model('ko')
-    fasttext_model = fasttext.load_model(model_path)
-except Exception as e:
-    print(f"모델 로드 실패: {e}")
-    fasttext_model = None
+        raise APIException(f"AI 모델 로드 실패: {e}")
 
 class AI:
     def __init__(self, model):
@@ -133,9 +118,8 @@ class RecommendationScrapService:
     def __init__(self, request:HttpRequest):
         self.request = request
 
-        if not fasttext_model:
-            raise APIException('AI 모델을 불러오지 못했어요. 관리자에게 문의하세요.')
-        self.ai = AI(fasttext_model)
+        model = get_fasttext_model()
+        self.ai = AI(model)
     
     def _cache_key_proposal(self, proposal_id):
         return CacheKey.PROPOSAL_VECTOR.format(proposal_id=proposal_id)

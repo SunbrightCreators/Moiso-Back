@@ -1,0 +1,59 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main # main브랜치에 push되었을 때
+  pull_request:
+    branches:
+      - main # main브랜치에 pr 날렸을 때
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) 레포 체크아웃
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Action Secret에 설정한 ENV_VARS 값을 env 폴더안의 .env.production으로 만듦
+      - name: create env file
+        run: |
+          mkdir -p env
+          echo "${{ secrets.ENV_VARS }}" > env/.env.production
+
+      # EC2에 접속해 원격디렉토리 생성
+      - name: create remote directory
+        uses: appleboy/ssh-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}
+          username: ubuntu
+          key: ${{ secrets.KEY }}
+          script: mkdir -p /home/ubuntu/srv/ubuntu
+
+      # SSH 키를 통해 소스 코드를 EC2 인스턴스(서버)로 복사
+      - name: copy source via ssh key
+        uses: burnett01/rsync-deployments@4.1
+        with:
+          switches: -avzr --delete
+          remote_path: /home/ubuntu/srv/ubuntu/
+          remote_host: ${{ secrets.HOST }}
+          remote_user: ubuntu
+          remote_key: ${{ secrets.KEY }}
+
+      # 서버에 접속한 뒤 deploy.sh(배포 스크립트)를 실행
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ubuntu
+          key: ${{ secrets.KEY }}
+          script: |
+            set -e
+            # 권한/개행 정리
+            sed -i 's/\r$//' /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
+            chmod +x /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh
+            # 실행 (실행비트가 없어도 확실히 하려면 bash로 읽어 실행)
+            bash /home/ubuntu/srv/ubuntu/configs/scripts/deploy.sh

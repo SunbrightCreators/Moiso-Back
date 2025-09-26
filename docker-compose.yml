@@ -1,0 +1,39 @@
+version: "3"
+services:
+  # PostgreSQL 데이터베이스
+  db:
+    container_name: db
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: kim-yeon-woo
+      POSTGRES_PASSWORD: 0000
+      POSTGRES_DB: sunnydb
+    ports:
+      - "5433:5432"
+    env_file:
+      - env/.env.development
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Django 개발 서버
+  web:
+    container_name: web
+    build: .
+    working_dir: /app
+    command: >
+      sh -c "python manage.py migrate --settings=configs.settings.development
+      && python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development"
+    env_file:
+      - env/.env.development
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+
+volumes:
+  app:
+  pgdata:

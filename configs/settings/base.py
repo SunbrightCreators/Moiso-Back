@@ -7,17 +7,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 # env
-
 env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env(os.path.join(BASE_DIR, 'env', '.env.base'))
 
-SECRET_KEY = env('SECRET_KEY')
+environ.Env.read_env(os.path.join(BASE_DIR, 'env', '.env.production'))
 
-DEBUG = env('DEBUG')
-
-NCLOUD_CLIENT_ID = env('NCLOUD_CLIENT_ID')
-NCLOUD_CLIENT_SECRET = env('NCLOUD_CLIENT_SECRET')
-
+SECRET_KEY = env("SECRET_KEY")
+DEBUG = env.bool("DEBUG", default=True)   
 
 # Application definition
 
@@ -111,13 +106,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-
+STATIC_ROOT = os.getenv("STATIC_ROOT", "/home/app/web/static")
 
 # Media files
 
 MEDIA_URL = '/media/'
-
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT  = os.getenv("MEDIA_ROOT",  "/home/app/web/media")
 
 
 # Default primary key field type
