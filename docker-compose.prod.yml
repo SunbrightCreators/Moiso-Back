@@ -11,6 +11,7 @@ services:
     command: gunicorn configs.wsgi:application --bind 0.0.0.0:8000
     environment: # configs.settings.production.py를 설정 모듈로 설정
       DJANGO_SETTINGS_MODULE: configs.settings.production
+      FASTTEXT_MODEL_PATH: /models/cc.ko.300.bin
     env_file:
       - env/.env.production
     volumes:
