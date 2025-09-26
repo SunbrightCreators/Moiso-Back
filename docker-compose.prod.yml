@@ -1,4 +1,5 @@
 version: "3"
+
 services:
   # Django 웹 애플리케이션을 실행
   web:
